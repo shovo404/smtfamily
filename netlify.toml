@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# TanStack Start + Nitro netlify preset emits functions to .netlify/functions-internal
+# and static assets to dist. The public/_redirects catch-all sends unmatched routes
+# to the generated server function.

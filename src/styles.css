@@ -1,0 +1,96 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --shadow-glass: 0 8px 32px 0 oklch(0.15 0.05 155 / 0.35);
+}
+
+:root {
+  --radius: 0.75rem;
+  /* Dark green enterprise theme (always dark) */
+  --background: oklch(0.18 0.03 155);
+  --foreground: oklch(0.96 0.01 150);
+  --card: oklch(0.22 0.035 155 / 0.7);
+  --card-foreground: oklch(0.96 0.01 150);
+  --popover: oklch(0.22 0.035 155);
+  --popover-foreground: oklch(0.96 0.01 150);
+  --primary: oklch(0.72 0.18 152);
+  --primary-foreground: oklch(0.15 0.04 155);
+  --secondary: oklch(0.28 0.04 155);
+  --secondary-foreground: oklch(0.96 0.01 150);
+  --muted: oklch(0.25 0.03 155);
+  --muted-foreground: oklch(0.72 0.03 150);
+  --accent: oklch(0.32 0.06 155);
+  --accent-foreground: oklch(0.96 0.01 150);
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 150);
+  --border: oklch(0.32 0.04 155 / 0.6);
+  --input: oklch(0.28 0.035 155 / 0.8);
+  --ring: oklch(0.72 0.18 152);
+  --sidebar: oklch(0.16 0.03 155);
+  --sidebar-foreground: oklch(0.92 0.01 150);
+  --sidebar-accent: oklch(0.26 0.05 155);
+  --sidebar-accent-foreground: oklch(0.96 0.01 150);
+  --sidebar-border: oklch(0.28 0.04 155 / 0.5);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { font-family: var(--font-sans); }
+  body {
+    background:
+      radial-gradient(at 20% 0%, oklch(0.28 0.06 155 / 0.6) 0, transparent 50%),
+      radial-gradient(at 80% 100%, oklch(0.24 0.05 160 / 0.5) 0, transparent 50%),
+      var(--color-background);
+    color: var(--color-foreground);
+    min-height: 100vh;
+  }
+}
+
+@utility glass {
+  background: oklch(0.24 0.035 155 / 0.75);
+  backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid oklch(0.4 0.05 155 / 0.4);
+  box-shadow: var(--shadow-glass);
+}
+
+@utility premium-card {
+  background: linear-gradient(135deg, oklch(0.24 0.04 155 / 0.7), oklch(0.2 0.035 155 / 0.6));
+  backdrop-filter: blur(16px);
+  border: 1px solid oklch(0.4 0.06 155 / 0.4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+}
