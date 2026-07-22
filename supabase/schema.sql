@@ -207,6 +207,7 @@ CREATE TABLE public.location_pings (
   longitude    DOUBLE PRECISION NOT NULL,
   accuracy     NUMERIC,
   speed        NUMERIC,
+  heading      NUMERIC,
   recorded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX location_pings_user_time_idx ON public.location_pings (user_id, recorded_at DESC);

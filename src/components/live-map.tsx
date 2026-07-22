@@ -4,7 +4,7 @@ import { ClientOnly } from "@tanstack/react-router";
 const Inner = lazy(() => import("./live-map-inner"));
 
 export type LiveMapPoint = { lat: number; lng: number };
-export type LiveMapMarker = LiveMapPoint & { label?: string; color?: string };
+export type LiveMapMarker = LiveMapPoint & { id?: string; label?: string; color?: string };
 export type LiveMapProps = {
   center?: LiveMapPoint;
   marker?: LiveMapMarker;
@@ -12,6 +12,7 @@ export type LiveMapProps = {
   path?: LiveMapPoint[];
   height?: number;
   fitToMarkers?: boolean;
+  markerMeta?: Map<string, Record<string, string>>;
 };
 
 export function LiveMap(props: LiveMapProps) {
@@ -20,7 +21,7 @@ export function LiveMap(props: LiveMapProps) {
       fallback={
         <div
           className="grid place-items-center rounded-xl bg-accent/40 text-xs text-muted-foreground"
-          style={{ height: props.height ?? 320 }}
+          style={{ height: props.height ?? 400 }}
         >
           Loading map…
         </div>
@@ -30,7 +31,7 @@ export function LiveMap(props: LiveMapProps) {
         fallback={
           <div
             className="grid place-items-center rounded-xl bg-accent/40 text-xs text-muted-foreground"
-            style={{ height: props.height ?? 320 }}
+            style={{ height: props.height ?? 400 }}
           >
             Loading map…
           </div>

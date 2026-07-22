@@ -116,6 +116,7 @@ export function useLocationTracker() {
       const lng = pos.coords.longitude;
       const acc = pos.coords.accuracy ?? null;
       const speed = pos.coords.speed ?? null;
+      const heading = pos.coords.heading ?? null;
       const now = Date.now();
       const iso = new Date().toISOString();
       lastKnown.current = { lat, lng, acc, at: iso };
@@ -142,6 +143,7 @@ export function useLocationTracker() {
           longitude: lng,
           accuracy: acc,
           speed,
+          heading,
         });
       }
     };

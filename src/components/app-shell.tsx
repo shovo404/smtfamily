@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useLocationTracker } from "@/hooks/use-location-tracker";
-import smtLogo from "@/assets/smt-logo.png.asset.json";
+import { BrandHeader } from "@/components/brand-header";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; show: (me: NonNullable<ReturnType<typeof useCurrentUser>["data"]>) => boolean };
 
@@ -46,17 +46,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Track location for field employees (SR/FSO/DSR/DHR-in-field)
   useLocationTracker();
 
-  // Read app logo from settings (fallback to static asset)
-  const { data: appLogo } = useQuery({
-    queryKey: ["app-logo"],
-    queryFn: async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "app_logo").maybeSingle();
-      const v = (data?.value ?? {}) as { url?: string };
-      return v.url || null;
-    },
-  });
-
-  const logoUrl = appLogo || smtLogo.url;
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
@@ -118,14 +107,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </button>
         )}
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white p-1 shadow">
-          <img src={logoUrl} alt="SMT" className="h-full w-full object-contain" />
-        </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-bold leading-tight">SMT Family</div>
-          <div className="truncate text-[10px] leading-tight text-primary" lang="bn">
-            সেরা মানের সেরা উপহার
-          </div>
+          <BrandHeader size="sm" variant="horizontal" />
         </div>
         {badge && (
           <span className="shrink-0 rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">
@@ -169,13 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             style={{ paddingTop: "max(env(safe-area-inset-top), 0.5rem)", paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}
           >
             <div className="flex items-center gap-3 px-4 pb-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white p-1 shadow">
-                <img src={logoUrl} alt="SMT" className="h-full w-full object-contain" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-bold">SMT Family</div>
-                {badge && <div className="text-[10px] font-semibold text-primary">{badge}</div>}
-              </div>
+              <BrandHeader size="sm" variant="horizontal" className="flex-1 min-w-0" />
               <button
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Close menu"
