@@ -2,6 +2,12 @@
 // Server-side Supabase client with service role key - bypasses RLS.
 // Use this for admin operations in server functions and server routes only.
 // For user-authenticated queries (with RLS), use the auth middleware instead.
+//
+// To resolve "Missing SUPABASE_SERVICE_ROLE_KEY":
+//   1. Go to https://supabase.com/dashboard/project/zcvtecqrmvbcgzzyhtpw/settings/api
+//   2. Under "Project API keys", copy the `service_role` key (starts with `sb_secret_`)
+//   3. Add it to your .env file: SUPABASE_SERVICE_ROLE_KEY="sb_secret_YOUR_KEY"
+//   OR set it as a Netlify environment variable under Site settings → Environment variables
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
@@ -30,16 +36,26 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const SUPABASE_URL =
+    import.meta.env.VITE_SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    process.env.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY =
+    import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY'] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
-    console.error(`[Supabase] ${message}`);
+    const missing: string[] = [];
+    if (!SUPABASE_URL) {
+      missing.push('SUPABASE_URL / VITE_SUPABASE_URL');
+    }
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      missing.push('SUPABASE_SERVICE_ROLE_KEY / VITE_SUPABASE_SERVICE_ROLE_KEY');
+    }
+    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}.\n` +
+      `Ensure they are set in .env (for dev) or as Netlify env vars (for production).\n` +
+      `For SUPABASE_SERVICE_ROLE_KEY, get it from: https://supabase.com/dashboard/project/zcvtecqrmvbcgzzyhtpw/settings/api`;
     throw new Error(message);
   }
 

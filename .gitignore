@@ -20,6 +20,12 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Env files with secrets
+.env
+
+# Build artifacts
+.netlify/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

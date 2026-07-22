@@ -60,6 +60,7 @@ $$;
 CREATE POLICY "Users view own profile"    ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "Admins view all profiles"  ON public.profiles FOR SELECT TO authenticated USING (public.is_admin(auth.uid()));
 CREATE POLICY "Self insert profile"       ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users update own profile"  ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 CREATE POLICY "Admins manage profiles"    ON public.profiles FOR ALL    TO authenticated USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
 -- ---------- POLICIES: user_roles ----------
@@ -308,6 +309,11 @@ CREATE POLICY "attendance faces: user upload own"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'attendance-faces' AND (storage.foldername(name))[1] = auth.uid()::text);
 
+CREATE POLICY "attendance faces: user update own"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'attendance-faces' AND (storage.foldername(name))[1] = auth.uid()::text)
+  WITH CHECK (bucket_id = 'attendance-faces' AND (storage.foldername(name))[1] = auth.uid()::text);
+
 CREATE POLICY "attendance faces: user read own"
   ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'attendance-faces' AND (storage.foldername(name))[1] = auth.uid()::text);
@@ -325,11 +331,12 @@ ON CONFLICT (id) DO NOTHING;
 
 CREATE POLICY "profile photos: authenticated upload"
   ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'profile-photos');
+  WITH CHECK (bucket_id = 'profile-photos' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 CREATE POLICY "profile photos: authenticated update own"
   ON storage.objects FOR UPDATE TO authenticated
-  USING (bucket_id = 'profile-photos' AND (storage.foldername(name))[1] = auth.uid()::text);
+  USING (bucket_id = 'profile-photos' AND (storage.foldername(name))[1] = auth.uid()::text)
+  WITH CHECK (bucket_id = 'profile-photos' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 CREATE POLICY "profile photos: authenticated delete own"
   ON storage.objects FOR DELETE TO authenticated
