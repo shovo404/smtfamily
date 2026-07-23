@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SMT Family</string>
+    <string name="title_activity_main">SMT Family</string>
+    <string name="package_name">com.smtfamily.app</string>
+    <string name="custom_url_scheme">com.smtfamily.app</string>
+</resources>
