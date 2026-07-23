@@ -22,7 +22,7 @@ function TAPage() {
       const { data, error } = await firebase.from("ta_requests").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       const ids = [...new Set((data ?? []).map((r: any) => r.user_id))];
-      const { data: profiles } = await firebase.from("profiles").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const { data: profiles } = await firebase.from("users").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
       const map = new Map(profiles?.map((p: any) => [p.id, p]) ?? []);
       return (data ?? []).map((r: any) => ({ ...r, profile: map.get(r.user_id) }));
     },

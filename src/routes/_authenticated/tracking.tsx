@@ -93,23 +93,16 @@ function TrackingPage() {
   const { data: employees } = useQuery({
     queryKey: ["field-employees"],
     queryFn: async () => {
-      const { data: roles } = await firebase
-        .from("user_roles")
-        .select("user_id, role")
-        .in("role", ["sr", "fso", "dhr"]);
-      const ids: string[] = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
-      if (ids.length === 0) return [];
-      const { data: profs } = await firebase
-        .from("profiles")
-        .select("id, full_name, email, employee_id, department")
-        .in("id", ids);
-      const byId = new Map<string, any>((profs ?? []).map((p: any) => [p.id, p]));
-      return ids.map((id) => ({
-        id,
-        name: byId.get(id)?.full_name ?? byId.get(id)?.email ?? "Unknown",
-        role: (roles ?? []).find((r: any) => r.user_id === id)?.role ?? "",
-        employee_id: byId.get(id)?.employee_id ?? "",
-        department: byId.get(id)?.department ?? "",
+      const { data: fieldUsers } = await firebase
+        .from("users")
+        .select("id, full_name, email, employee_id, department, role")
+        .eq("is_active", true);
+      return (fieldUsers ?? []).map((u: any) => ({
+        id: u.id,
+        name: u.full_name ?? u.email ?? "Unknown",
+        role: u.role ?? "",
+        employee_id: u.employee_id ?? "",
+        department: u.department ?? "",
       }));
     },
   });
@@ -177,7 +170,7 @@ function TrackingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Live Employee Tracking</h1>
-          <p className="text-sm text-muted-foreground">Real-time field employee locations &amp; movement history</p>
+          <p className="text-sm text-muted-foreground">Real-time employee locations &amp; movement history</p>
         </div>
         <div className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary">
           <Users className="h-4 w-4" />

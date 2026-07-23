@@ -25,7 +25,7 @@ function ProfilePage() {
 
   const save = useMutation({
     mutationFn: async (f: FormData) => {
-      const { error } = await firebase.from("profiles").update({
+      const { error } = await firebase.from("users").update({
         full_name: String(f.get("full_name")),
         phone: String(f.get("phone") || ""),
         department: String(f.get("department") || ""),

@@ -1,20 +1,7 @@
-import { createMiddleware } from '@tanstack/react-start'
-import { getIdToken } from 'firebase/auth'
-import { auth } from '@/firebase'
+import { createMiddleware } from "@tanstack/react-start";
+import { supabase } from "@/lib/firebase-client";
 
-export const attachFirebaseAuth = createMiddleware({ type: 'function' }).client(
-  async ({ next }) => {
-    const user = auth.currentUser
-    if (!user) {
-      return next({ headers: {} })
-    }
-    try {
-      const token = await getIdToken(user, true)
-      return next({
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-    } catch {
-      return next({ headers: {} })
-    }
-  },
-)
+export const attachFirebaseAuth = createMiddleware({ type: "function" }).client(async ({ next }) => {
+  const { data } = await supabase.auth.getSession();
+  return next({ headers: data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {} });
+});

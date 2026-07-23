@@ -13,7 +13,11 @@ export const Route = createFileRoute("/_authenticated/attendance")({
   component: AttendancePage,
 });
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function todayStr() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 function parseHHMM(s: string): { h: number; m: number } {
   const [h, m] = s.split(":").map(Number);
@@ -68,6 +72,10 @@ function FaceCaptureModal({
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setErr("Camera is not available in this browser. Open the app over HTTPS or use the Android app.");
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
@@ -128,6 +136,27 @@ function FaceCaptureModal({
         </p>
       </div>
     </div>
+  );
+}
+
+function AttendancePhoto({ path, label }: { path?: string | null; label: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!path) return;
+    let active = true;
+    firebase.storage.from("attendance-faces").getPublicUrl(path).then(({ data, error }) => {
+      if (active && !error) setUrl(data.publicUrl);
+    });
+    return () => { active = false; };
+  }, [path]);
+
+  if (!path) return <span className="text-muted-foreground">—</span>;
+  if (!url) return <span className="text-muted-foreground">Saved</span>;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" title={`Open ${label} photo`}>
+      <img src={url} alt={label} className="h-9 w-9 rounded-md border border-border object-cover" />
+    </a>
   );
 }
 
@@ -227,7 +256,7 @@ function AttendancePage() {
       }
       const sorted = (data ?? []).sort((a: any, b: any) => ((b.check_in || "") < (a.check_in || "") ? -1 : 1));
       const ids = [...new Set(sorted.map((a: any) => a.user_id))];
-      const { data: profiles } = await firebase.from("profiles").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const { data: profiles } = await firebase.from("users").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
       const map = new Map(profiles?.map((p: any) => [p.id, p]) ?? []);
       return sorted.map((a: any) => ({ ...a, profile: map.get(a.user_id) }));
     },
@@ -450,6 +479,8 @@ function AttendancePage() {
                   <th className="px-4 py-3 font-medium">Hours</th>
                   <th className="px-4 py-3 font-medium">Late</th>
                   <th className="px-4 py-3 font-medium">GPS</th>
+                  <th className="px-4 py-3 font-medium">In photo</th>
+                  <th className="px-4 py-3 font-medium">Out photo</th>
                   <th className="px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -475,6 +506,12 @@ function AttendancePage() {
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {a.check_in_lat != null ? `${a.check_in_lat.toFixed(3)}, ${a.check_in_lng?.toFixed(3)}` : "—"}
                       </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        <AttendancePhoto path={a.check_in_photo_url} label="Check-in attendance" />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        <AttendancePhoto path={a.check_out_photo_url} label="Check-out attendance" />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <button
@@ -498,7 +535,7 @@ function AttendancePage() {
                   );
                 })}
                 {(adminList ?? []).length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">No attendance today.</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">No attendance today.</td></tr>
                 )}
               </tbody>
             </table>

@@ -6,6 +6,7 @@ import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useLocationTracker } from "@/hooks/use-location-tracker";
 import { BrandHeader } from "@/components/brand-header";
+import { DevicePermissionGate } from "@/components/device-permission-gate";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; show: (me: NonNullable<ReturnType<typeof useCurrentUser>["data"]>) => boolean };
 
@@ -33,7 +34,7 @@ function roleLabel(me: ReturnType<typeof useCurrentUser>["data"]) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { data: me } = useCurrentUser();
+  const { data: me, isLoading } = useCurrentUser();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -86,8 +87,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     navigate({ to: "/auth", replace: true });
   };
 
+  if (isLoading && !me) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className={`mx-auto flex min-h-screen w-full flex-col bg-transparent ${useDrawer ? "max-w-7xl" : "max-w-md"}`}>
+      <DevicePermissionGate />
       {/* Top app bar */}
       <header
         className="glass sticky top-0 z-30 flex items-center gap-3 px-4"

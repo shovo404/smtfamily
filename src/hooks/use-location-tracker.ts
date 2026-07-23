@@ -24,7 +24,9 @@ export function useLocationTracker() {
   const lastKnown = useRef<{ lat: number; lng: number; acc: number | null; at: string } | null>(null);
   const notifiedOff = useRef(false);
 
-  const shouldTrack = !!me && (me.isField || me.isDHR) && !me.isAdmin && !me.isHR;
+  // Every signed-in user shares their current work location. The tracking page
+  // decides who can view it; this must not silently exclude HR/DHR/admin users.
+  const shouldTrack = !!me;
   const userId = me?.user.id;
   const fullName = me?.profile?.full_name ?? me?.user.email ?? "Unknown user";
   const roleLabel = me?.roles.has("dhr")
@@ -70,7 +72,7 @@ export function useLocationTracker() {
             accuracy: lk.acc,
             duty_on: false,
             updated_at: new Date().toISOString(),
-          });
+          }, { onConflict: "user_id" });
         } else {
           await firebase.from("employee_locations").upsert({
             user_id: userId,
@@ -78,7 +80,7 @@ export function useLocationTracker() {
             longitude: 0,
             duty_on: false,
             updated_at: new Date().toISOString(),
-          });
+          }, { onConflict: "user_id" });
         }
 
         const coordText = lk
@@ -122,7 +124,7 @@ export function useLocationTracker() {
       lastKnown.current = { lat, lng, acc, at: iso };
 
       // Always update current position (upsert)
-      await firebase.from("employee_locations").upsert({
+      const { error: locationError } = await firebase.from("employee_locations").upsert({
         user_id: userId,
         latitude: lat,
         longitude: lng,
@@ -130,7 +132,11 @@ export function useLocationTracker() {
         speed,
         duty_on: true,
         updated_at: iso,
-      });
+      }, { onConflict: "user_id" });
+      if (locationError) {
+        console.error("Unable to save live location", locationError.message);
+        return;
+      }
 
       // Throttle history inserts
       const last = lastInsert.current;

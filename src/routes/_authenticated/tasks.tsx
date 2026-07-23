@@ -30,7 +30,7 @@ function TasksPage() {
   const { data: employees } = useQuery({
     queryKey: ["employees-simple"],
     queryFn: async () => {
-      const { data } = await firebase.from("profiles").select("id, full_name, email");
+      const { data } = await firebase.from("users").select("id, full_name, email");
       return data ?? [];
     },
     enabled: !!me?.isAdmin,

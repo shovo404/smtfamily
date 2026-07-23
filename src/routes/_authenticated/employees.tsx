@@ -37,23 +37,16 @@ function EmployeesPage() {
   const { data: list } = useQuery({
     queryKey: ["employees"],
     queryFn: async () => {
-      const { data: profiles, error } = await firebase.from("profiles").select("*").order("created_at", { ascending: false });
+      const { data: users, error } = await firebase.from("users").select("*").order("created_at", { ascending: false });
       if (error) throw error;
-      const { data: roles } = await firebase.from("user_roles").select("user_id, role");
-      const roleMap = new Map<string, string[]>();
-      (roles ?? []).forEach((r: any) => {
-        const arr = roleMap.get(r.user_id) ?? [];
-        arr.push(r.role);
-        roleMap.set(r.user_id, arr);
-      });
-      return (profiles ?? []).map((p: any) => ({ ...p, roles: roleMap.get(p.id) ?? [] }));
+      return (users ?? []).map((p: any) => ({ ...p, roles: p.role ? [p.role] : [] }));
     },
     enabled: allowed,
   });
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await firebase.from("profiles").update({ is_active }).eq("id", id);
+      const { error } = await firebase.from("users").update({ is_active }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); toast.success("Updated"); },

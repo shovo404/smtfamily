@@ -59,7 +59,7 @@ function ReportsPage() {
     queryKey: ["report-employees"],
     enabled: isAdmin,
     queryFn: async () => {
-      const { data } = await firebase.from("profiles").select("id, full_name, email").order("full_name");
+      const { data } = await firebase.from("users").select("id, full_name, email").order("full_name");
       return data ?? [];
     },
   });

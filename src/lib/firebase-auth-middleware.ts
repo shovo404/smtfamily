@@ -1,80 +1,17 @@
-import { createMiddleware } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/react-start/server'
-import { getAuth } from 'firebase-admin/auth'
-import { initializeApp, getApps, cert } from 'firebase-admin/app'
+import { createClient } from "@supabase/supabase-js";
+import { createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 
-function getFirebaseAdminApp() {
-  if (getApps().length > 0) return getApps()[0]
-
-  const projectId = "smt-family"
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY
-
-  if (clientEmail && privateKey) {
-    return initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey: privateKey.replace(/\\n/g, "\n"),
-      }),
-    })
-  }
-
-  return initializeApp({ projectId })
-}
-
-export const requireFirebaseAuth = createMiddleware({ type: 'function' }).server(
-  async ({ next }) => {
-    const request = getRequest()
-
-    if (!request?.headers) {
-      throw new Error('Unauthorized: No request headers available')
-    }
-
-    const authHeader = request.headers.get('authorization')
-
-    if (!authHeader) {
-      throw new Error('Unauthorized: No authorization header provided')
-    }
-
-    if (!authHeader.startsWith('Bearer ')) {
-      throw new Error('Unauthorized: Only Bearer tokens are supported')
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    if (!token) {
-      throw new Error('Unauthorized: No token provided')
-    }
-
-    try {
-      const app = getFirebaseAdminApp()
-      const adminAuth = getAuth(app)
-      const decodedToken = await adminAuth.verifyIdToken(token)
-
-      if (!decodedToken.uid) {
-        throw new Error('Unauthorized: No user ID found in token')
-      }
-
-      return next({
-        context: {
-          firebase: {
-            rpc: (fnName: string, params: { _user_id?: string; _role?: string }) => {
-              if (fnName === 'is_admin') {
-                return { data: true }
-              }
-              if (fnName === 'has_role') {
-                return { data: true }
-              }
-              return { data: false }
-            },
-          },
-          userId: decodedToken.uid,
-          claims: decodedToken,
-        },
-      })
-    } catch (e: any) {
-      if (e?.message?.startsWith('Unauthorized')) throw e
-      throw new Error('Unauthorized: Invalid token')
-    }
-  },
-)
+export const requireFirebaseAuth = createMiddleware({ type: "function" }).server(async ({ next }) => {
+  const token = getRequest()?.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) throw new Error("Unauthorized: sign in is required");
+  const url = process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) throw new Error("Supabase server configuration is incomplete");
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+  const { data: authData, error: authError } = await client.auth.getUser(token);
+  if (authError || !authData.user) throw new Error("Unauthorized: invalid session");
+  const { data: profile, error: profileError } = await client.from("users").select("role").eq("id", authData.user.id).single();
+  if (profileError || !profile) throw new Error("Unauthorized: profile not found");
+  return next({ context: { userId: authData.user.id, role: profile.role } });
+});

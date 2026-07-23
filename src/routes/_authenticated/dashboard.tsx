@@ -40,8 +40,8 @@ function Dashboard() {
       const today = new Date().toISOString().slice(0, 10);
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const [emp, active, todayAtt, tasksP, tasksD, ta, live, settings] = await Promise.all([
-        firebase.from("profiles").select("id", { count: "exact", head: true }),
-        firebase.from("profiles").select("id", { count: "exact", head: true }).eq("is_active", true),
+        firebase.from("users").select("id", { count: "exact", head: true }),
+        firebase.from("users").select("id", { count: "exact", head: true }).eq("is_active", true),
         firebase.from("attendance").select("check_in").eq("work_date", today),
         firebase.from("tasks").select("id", { count: "exact", head: true }).eq("status", "pending"),
         firebase.from("tasks").select("id", { count: "exact", head: true }).eq("status", "completed"),
