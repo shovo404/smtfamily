@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { Plus, Check, X } from "lucide-react";
 
@@ -19,19 +19,19 @@ function TAPage() {
   const { data: list } = useQuery({
     queryKey: ["ta-requests"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ta_requests").select("*").order("created_at", { ascending: false });
+      const { data, error } = await firebase.from("ta_requests").select("*").order("created_at", { ascending: false });
       if (error) throw error;
-      const ids = [...new Set((data ?? []).map((r) => r.user_id))];
-      const { data: profiles } = await supabase.from("profiles").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-      const map = new Map(profiles?.map((p) => [p.id, p]) ?? []);
-      return (data ?? []).map((r) => ({ ...r, profile: map.get(r.user_id) }));
+      const ids = [...new Set((data ?? []).map((r: any) => r.user_id))];
+      const { data: profiles } = await firebase.from("profiles").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const map = new Map(profiles?.map((p: any) => [p.id, p]) ?? []);
+      return (data ?? []).map((r: any) => ({ ...r, profile: map.get(r.user_id) }));
     },
     enabled: allowed,
   });
 
   const submit = useMutation({
     mutationFn: async (form: FormData) => {
-      const { error } = await supabase.from("ta_requests").insert({
+      const { error } = await firebase.from("ta_requests").insert({
         user_id: me!.user.id,
         from_location: String(form.get("from_location")),
         to_location: String(form.get("to_location")),
@@ -50,7 +50,7 @@ function TAPage() {
 
   const decide = useMutation({
     mutationFn: async ({ id, status, amount }: { id: string; status: "approved" | "rejected"; amount?: number }) => {
-      const { error } = await supabase.from("ta_requests")
+      const { error } = await firebase.from("ta_requests")
         .update({ status, ...(amount !== undefined ? { approved_amount: amount } : {}) })
         .eq("id", id);
       if (error) throw error;
@@ -103,7 +103,7 @@ function TAPage() {
               </tr>
             </thead>
             <tbody>
-              {(list ?? []).map((r) => (
+              {(list ?? []).map((r: any) => (
                 <tr key={r.id} className="border-t border-border/40">
                   {me?.isAdmin && <td className="px-4 py-3">{r.profile?.full_name || r.profile?.email || "—"}</td>}
                   <td className="px-4 py-3">{r.from_location} → {r.to_location}</td>

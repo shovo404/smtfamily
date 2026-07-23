@@ -1,27 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireFirebaseAuth } from "@/lib/firebase-auth-middleware";
 
 type AppRole = "super_admin" | "admin" | "hr" | "dhr" | "sr" | "fso" | "dsr";
 
-async function assertCallerCanManage(context: { supabase: any; userId: string }) {
-  const { data: isAdmin } = await context.supabase.rpc("is_admin", { _user_id: context.userId });
-  const { data: isHR } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "hr" });
+async function assertCallerCanManage(context: { firebase: any; userId: string }) {
+  const { data: isAdmin } = await context.firebase.rpc("is_admin", { _user_id: context.userId });
+  const { data: isHR } = await context.firebase.rpc("has_role", { _user_id: context.userId, _role: "hr" });
   if (!isAdmin && !isHR) throw new Error("Forbidden: admin or HR role required");
   return { isAdmin: !!isAdmin, isHR: !!isHR };
 }
 
-async function assertSuperAdmin(context: { supabase: any; userId: string }) {
-  const { data } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" });
+async function assertSuperAdmin(context: { firebase: any; userId: string }) {
+  const { data } = await context.firebase.rpc("has_role", { _user_id: context.userId, _role: "super_admin" });
   if (!data) throw new Error("Only Super Admin can perform this action");
 }
 
-async function isTargetSuperAdmin(context: { supabase: any }, targetId: string) {
-  const { data } = await context.supabase.rpc("has_role", { _user_id: targetId, _role: "super_admin" });
+async function isTargetSuperAdmin(context: { firebase: any }, targetId: string) {
+  const { data } = await context.firebase.rpc("has_role", { _user_id: targetId, _role: "super_admin" });
   return !!data;
 }
 
 export const createEmployee = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: {
     email: string;
     password: string;
@@ -37,9 +37,9 @@ export const createEmployee = createServerFn({ method: "POST" })
       await assertSuperAdmin(context);
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
 
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    const { data: created, error: createErr } = await firebaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
       email_confirm: true,
@@ -51,16 +51,21 @@ export const createEmployee = createServerFn({ method: "POST" })
 
     const userId = created.user.id;
 
-    await supabaseAdmin
+    await firebaseAdmin
       .from("profiles")
-      .update({
+      .upsert({
+        id: userId,
+        full_name: data.full_name,
+        email: data.email,
         phone: data.phone ?? null,
         department: data.department ?? null,
-      })
-      .eq("id", userId);
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "id" });
 
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
-    const { error: roleErr } = await supabaseAdmin
+    await firebaseAdmin.from("user_roles").delete().eq("user_id", userId);
+    const { error: roleErr } = await firebaseAdmin
       .from("user_roles")
       .insert({ user_id: userId, role: data.role });
     if (roleErr) throw new Error(roleErr.message);
@@ -69,7 +74,7 @@ export const createEmployee = createServerFn({ method: "POST" })
   });
 
 export const resetEmployeePassword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { userId: string; newPassword: string }) => input)
   .handler(async ({ data, context }) => {
     await assertCallerCanManage(context);
@@ -80,8 +85,8 @@ export const resetEmployeePassword = createServerFn({ method: "POST" })
       await assertSuperAdmin(context);
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin.auth.admin.updateUserById(data.userId, {
       password: data.newPassword,
     });
     if (error) throw new Error(error.message);
@@ -89,7 +94,7 @@ export const resetEmployeePassword = createServerFn({ method: "POST" })
   });
 
 export const deleteEmployee = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { userId: string }) => input)
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertCallerCanManage(context);
@@ -102,14 +107,14 @@ export const deleteEmployee = createServerFn({ method: "POST" })
       await assertSuperAdmin(context);
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin.auth.admin.deleteUser(data.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const changeEmployeeRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { userId: string; role: AppRole }) => input)
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertCallerCanManage(context);
@@ -124,15 +129,15 @@ export const changeEmployeeRole = createServerFn({ method: "POST" })
       await assertSuperAdmin(context);
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
-    const { error } = await supabaseAdmin.from("user_roles").insert({ user_id: data.userId, role: data.role });
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    await firebaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
+    const { error } = await firebaseAdmin.from("user_roles").insert({ user_id: data.userId, role: data.role });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const setRolePermission = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { role: AppRole; permission: string; enabled: boolean }) => input)
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertCallerCanManage(context);
@@ -141,8 +146,8 @@ export const setRolePermission = createServerFn({ method: "POST" })
     if (data.role === "super_admin") {
       await assertSuperAdmin(context);
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin
       .from("role_permissions")
       .upsert(
         { role: data.role, permission: data.permission, enabled: data.enabled, updated_at: new Date().toISOString() },
@@ -153,15 +158,15 @@ export const setRolePermission = createServerFn({ method: "POST" })
   });
 
 export const setOfficeHours = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { start: string; end: string }) => input)
   .handler(async ({ data, context }) => {
     await assertCallerCanManage(context);
     if (!/^\d{2}:\d{2}$/.test(data.start) || !/^\d{2}:\d{2}$/.test(data.end)) {
       throw new Error("Invalid time format (HH:MM)");
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin
       .from("app_settings")
       .upsert(
         { key: "office_hours", value: { start: data.start, end: data.end }, updated_at: new Date().toISOString(), updated_by: context.userId },
@@ -172,13 +177,13 @@ export const setOfficeHours = createServerFn({ method: "POST" })
   });
 
 export const setAppLogo = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { logoUrl: string }) => input)
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertCallerCanManage(context);
     if (!isAdmin) throw new Error("Only Admin can change the app logo");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin
       .from("app_settings")
       .upsert(
         { key: "app_logo", value: { url: data.logoUrl }, updated_at: new Date().toISOString(), updated_by: context.userId },
@@ -189,7 +194,7 @@ export const setAppLogo = createServerFn({ method: "POST" })
   });
 
 export const resetUserMonthAttendance = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { userId: string; month: string }) => input)
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertCallerCanManage(context);
@@ -199,19 +204,18 @@ export const resetUserMonthAttendance = createServerFn({ method: "POST" })
     const start = `${data.month}-01`;
     const endDate = new Date(y, m, 0).getDate();
     const end = `${data.month}-${String(endDate).padStart(2, "0")}`;
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin
       .from("attendance")
       .delete()
       .eq("user_id", data.userId)
       .gte("work_date", start)
       .lte("work_date", end);
-    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const updateAttendanceTimes = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { attendanceId: string; check_in?: string | null; check_out?: string | null }) => input)
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertCallerCanManage(context);
@@ -220,19 +224,19 @@ export const updateAttendanceTimes = createServerFn({ method: "POST" })
     if (data.check_in !== undefined) patch.check_in = data.check_in;
     if (data.check_out !== undefined) patch.check_out = data.check_out;
     if (Object.keys(patch).length === 0) return { ok: true };
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("attendance").update(patch).eq("id", data.attendanceId);
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin.from("attendance").update(patch).eq("id", data.attendanceId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const updateEmployeeProfile = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { userId: string; full_name: string; phone?: string; department?: string }) => input)
   .handler(async ({ data, context }) => {
     await assertCallerCanManage(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin
       .from("profiles")
       .update({
         full_name: data.full_name,
@@ -246,11 +250,11 @@ export const updateEmployeeProfile = createServerFn({ method: "POST" })
   });
 
 export const updateOwnProfilePhoto = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireFirebaseAuth])
   .inputValidator((input: { photoUrl: string }) => input)
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
+    const { firebaseAdmin } = await import("@/lib/firebase-admin");
+    const { error } = await firebaseAdmin
       .from("profiles")
       .update({ photo_url: data.photoUrl, updated_at: new Date().toISOString() })
       .eq("id", context.userId);

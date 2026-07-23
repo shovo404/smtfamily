@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { Bell, WifiOff } from "lucide-react";
 
@@ -21,7 +21,7 @@ function NotificationsPage() {
   const { data: notifs } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await firebase
         .from("notifications")
         .select("*, profile:actor_user_id(full_name, email)")
         .order("created_at", { ascending: false })
@@ -31,7 +31,7 @@ function NotificationsPage() {
   });
 
   useEffect(() => {
-    const ch = supabase
+    const ch = firebase
       .channel("notifications-list")
       .on(
         "postgres_changes",
@@ -40,12 +40,12 @@ function NotificationsPage() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(ch);
+      firebase.removeChannel(ch);
     };
   }, [qc]);
 
   const markAllRead = async () => {
-    await supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+    await firebase.from("notifications").update({ is_read: true }).eq("is_read", false);
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
 
@@ -65,7 +65,7 @@ function NotificationsPage() {
       </div>
 
       <div className="space-y-2">
-        {(notifs ?? []).map((n) => {
+        {(notifs ?? []).map((n: any) => {
           const actor = (n as { profile?: { full_name?: string; email?: string } }).profile;
           const isOff = n.type === "location_off";
           return (

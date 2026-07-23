@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Users, ClipboardList, MapPin, Wallet, UserCircle, LogOut, Shield, Radar, Bell, Menu, X, FileText } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useLocationTracker } from "@/hooks/use-location-tracker";
 import { BrandHeader } from "@/components/brand-header";
@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     queryKey: ["notifications-unread"],
     enabled: !!me?.isAdmin,
     queryFn: async () => {
-      const { count } = await supabase
+      const { count } = await firebase
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("is_read", false);
@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!me?.isAdmin) return;
-    const ch = supabase
+    const ch = firebase
       .channel("notif-badge")
       .on(
         "postgres_changes",
@@ -75,14 +75,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(ch);
+      firebase.removeChannel(ch);
     };
   }, [me?.isAdmin, qc]);
 
   const signOut = async () => {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    await firebase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   };
 

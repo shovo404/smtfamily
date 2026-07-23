@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { FileText, Download, Printer, Calendar } from "lucide-react";
 import jsPDF from "jspdf";
@@ -48,7 +48,7 @@ function ReportsPage() {
   const { data: hours } = useQuery({
     queryKey: ["office-hours"],
     queryFn: async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle();
+      const { data } = await firebase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle();
       const v = (data?.value ?? {}) as { start?: string; end?: string };
       return { start: v.start ?? "09:00", end: v.end ?? "18:00" };
     },
@@ -59,7 +59,7 @@ function ReportsPage() {
     queryKey: ["report-employees"],
     enabled: isAdmin,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, full_name, email").order("full_name");
+      const { data } = await firebase.from("profiles").select("id, full_name, email").order("full_name");
       return data ?? [];
     },
   });
@@ -73,24 +73,28 @@ function ReportsPage() {
     queryKey: ["report-attendance", uid, month],
     enabled: !!uid && view === "attendance",
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: _records, error } = await firebase
         .from("attendance")
         .select("*")
         .eq("user_id", uid)
         .gte("work_date", monthStart)
-        .lte("work_date", monthEnd)
-        .order("work_date", { ascending: true });
-      return data ?? [];
+        .lte("work_date", monthEnd);
+      if (error) {
+        console.warn("Report attendance query error:", error.message);
+        return [];
+      }
+      const records = (_records as any[]) ?? [];
+      return records.sort((a: any, b: any) => (a.work_date || "").localeCompare(b.work_date || ""));
     },
   });
 
   const targetProfile = useMemo(() => {
     if (!isAdmin) return { full_name: me?.profile?.full_name ?? "", email: me?.user.email ?? "" };
-    return employees?.find((e) => e.id === uid) ?? { full_name: "", email: "" };
+    return employees?.find((e: any) => e.id === uid) ?? { full_name: "", email: "" };
   }, [isAdmin, employees, uid, me]);
 
   const rows = useMemo(() => {
-    const byDate = new Map((records ?? []).map((r) => [r.work_date, r]));
+    const byDate = new Map((records ?? []).map((r: any) => [r.work_date, r]));
     return Array.from({ length: dim }, (_, i) => {
       const day = i + 1;
       const dateStr = `${month}-${String(day).padStart(2, "0")}`;
@@ -180,7 +184,7 @@ function ReportsPage() {
             onChange={(e) => setTargetUserId(e.target.value)}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           >
-            {(employees ?? []).map((emp) => (
+            {(employees ?? []).map((emp: any) => (
               <option key={emp.id} value={emp.id}>{emp.full_name || emp.email}</option>
             ))}
           </select>

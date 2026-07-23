@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { updateOwnProfilePhoto } from "@/lib/admin-users.functions";
 import { Camera, User, Shield } from "lucide-react";
@@ -25,7 +25,7 @@ function ProfilePage() {
 
   const save = useMutation({
     mutationFn: async (f: FormData) => {
-      const { error } = await supabase.from("profiles").update({
+      const { error } = await firebase.from("profiles").update({
         full_name: String(f.get("full_name")),
         phone: String(f.get("phone") || ""),
         department: String(f.get("department") || ""),
@@ -43,16 +43,16 @@ function ProfilePage() {
     try {
       const ext = file.name.split(".").pop() || "jpg";
       const path = `profiles/${me.user.id}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
+      const { error: uploadErr } = await firebase.storage
         .from("profile-photos")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = await supabase.storage
+      const { data: urlData } = await firebase.storage
         .from("profile-photos")
         .getPublicUrl(path);
 
-      await updatePhotoFn({ data: { photoUrl: urlData.publicUrl } });
+      await updatePhotoFn({ data: { photoUrl: urlData.publicUrl! } });
 
       qc.invalidateQueries({ queryKey: ["current-user"] });
       toast.success("Profile picture updated");

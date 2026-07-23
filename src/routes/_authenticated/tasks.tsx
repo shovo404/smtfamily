@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { Plus } from "lucide-react";
 
@@ -21,7 +21,7 @@ function TasksPage() {
   const { data: tasks } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
+      const { data, error } = await firebase.from("tasks").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -30,7 +30,7 @@ function TasksPage() {
   const { data: employees } = useQuery({
     queryKey: ["employees-simple"],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, full_name, email");
+      const { data } = await firebase.from("profiles").select("id, full_name, email");
       return data ?? [];
     },
     enabled: !!me?.isAdmin,
@@ -38,7 +38,7 @@ function TasksPage() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: (typeof STATUSES)[number] }) => {
-      const { error } = await supabase.from("tasks").update({ status }).eq("id", id);
+      const { error } = await firebase.from("tasks").update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["tasks"] }); toast.success("Updated"); },
@@ -46,7 +46,7 @@ function TasksPage() {
 
   const createTask = useMutation({
     mutationFn: async (form: { title: string; description: string; assigned_to: string; due_date: string }) => {
-      const { error } = await supabase.from("tasks").insert({
+      const { error } = await firebase.from("tasks").insert({
         title: form.title,
         description: form.description || null,
         assigned_to: form.assigned_to,
@@ -59,7 +59,7 @@ function TasksPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  const empName = (id: string | null) => employees?.find((e) => e.id === id)?.full_name ?? "—";
+  const empName = (id: string | null) => employees?.find((e: any) => e.id === id)?.full_name ?? "—";
 
   if (!allowed) return null;
 
@@ -95,7 +95,7 @@ function TasksPage() {
           <textarea name="description" placeholder="Description" className="rounded-md bg-input px-3 py-2 text-sm sm:col-span-2" />
           <select name="assigned_to" required className="rounded-md bg-input px-3 py-2 text-sm">
             <option value="">Assign to…</option>
-            {employees?.map((e) => <option key={e.id} value={e.id}>{e.full_name || e.email}</option>)}
+            {employees?.map((e: any) => <option key={e.id} value={e.id}>{e.full_name || e.email}</option>)}
           </select>
           <input name="due_date" type="date" className="rounded-md bg-input px-3 py-2 text-sm" />
           <button className="sm:col-span-2 rounded-md bg-primary py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">Create</button>
@@ -114,7 +114,7 @@ function TasksPage() {
               </tr>
             </thead>
             <tbody>
-              {(tasks ?? []).map((t) => (
+              {(tasks ?? []).map((t: any) => (
                 <tr key={t.id} className="border-t border-border/40">
                   <td className="px-4 py-3">
                     <div className="font-medium">{t.title}</div>

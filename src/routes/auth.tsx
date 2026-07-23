@@ -1,13 +1,13 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { BrandHeader } from "@/components/brand-header";
 
 export const Route = createFileRoute("/auth")({
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
-    const { data } = await supabase.auth.getSession();
+    const { data } = await firebase.auth.getSession();
     if (data.session) throw redirect({ to: "/dashboard" });
   },
   head: () => ({
@@ -26,7 +26,7 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    const { data: sub } = firebase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") navigate({ to: "/dashboard" });
     });
     return () => sub.subscription.unsubscribe();
@@ -36,7 +36,7 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await firebase.auth.signInWithPassword({ email, password });
       if (error) throw error;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sign-in failed");

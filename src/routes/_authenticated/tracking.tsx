@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { LiveMap, type LiveMapMarker } from "@/components/live-map";
 import { MapPin, WifiOff, ChevronLeft, Clock, Route as RouteIcon, Calendar, Users, Navigation } from "lucide-react";
@@ -93,21 +93,21 @@ function TrackingPage() {
   const { data: employees } = useQuery({
     queryKey: ["field-employees"],
     queryFn: async () => {
-      const { data: roles } = await supabase
+      const { data: roles } = await firebase
         .from("user_roles")
         .select("user_id, role")
         .in("role", ["sr", "fso", "dhr"]);
-      const ids = Array.from(new Set((roles ?? []).map((r) => r.user_id)));
+      const ids: string[] = Array.from(new Set((roles ?? []).map((r: any) => r.user_id)));
       if (ids.length === 0) return [];
-      const { data: profs } = await supabase
+      const { data: profs } = await firebase
         .from("profiles")
         .select("id, full_name, email, employee_id, department")
         .in("id", ids);
-      const byId = new Map((profs ?? []).map((p) => [p.id, p]));
+      const byId = new Map<string, any>((profs ?? []).map((p: any) => [p.id, p]));
       return ids.map((id) => ({
         id,
         name: byId.get(id)?.full_name ?? byId.get(id)?.email ?? "Unknown",
-        role: (roles ?? []).find((r) => r.user_id === id)?.role ?? "",
+        role: (roles ?? []).find((r: any) => r.user_id === id)?.role ?? "",
         employee_id: byId.get(id)?.employee_id ?? "",
         department: byId.get(id)?.department ?? "",
       }));
@@ -117,14 +117,14 @@ function TrackingPage() {
   const { data: locations } = useQuery({
     queryKey: ["employee-locations"],
     queryFn: async (): Promise<LocRow[]> => {
-      const { data } = await supabase.from("employee_locations").select("*");
+      const { data } = await firebase.from("employee_locations").select("*");
       return (data ?? []) as LocRow[];
     },
     refetchInterval: 15_000,
   });
 
   useEffect(() => {
-    const channel = supabase
+    const channel = firebase
       .channel("live-locations")
       .on(
         "postgres_changes",
@@ -132,7 +132,7 @@ function TrackingPage() {
         () => qc.invalidateQueries({ queryKey: ["employee-locations"] }),
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { firebase.removeChannel(channel); };
   }, [qc]);
 
   const locByUser = useMemo(() => {
@@ -142,7 +142,7 @@ function TrackingPage() {
   }, [locations]);
 
   if (selected) {
-    return <EmployeeDetail userId={selected} name={employees?.find(e => e.id === selected)?.name} onBack={() => setSelected(null)} />;
+    return <EmployeeDetail userId={selected} name={employees?.find((e: any) => e.id === selected)?.name} onBack={() => setSelected(null)} />;
   }
 
   const liveMarkers: LiveMapMarker[] = [];
@@ -210,7 +210,7 @@ function TrackingPage() {
 
       <h3 className="font-semibold text-sm text-muted-foreground">All Employees</h3>
       <div className="space-y-2">
-        {(employees ?? []).map((emp) => {
+        {(employees ?? []).map((emp: any) => {
           const loc = locByUser.get(emp.id);
           const on = loc?.duty_on && loc.latitude !== 0;
           return (
@@ -259,7 +259,7 @@ function EmployeeDetail({ userId, name, onBack }: { userId: string; name?: strin
   const { data: profile } = useQuery({
     queryKey: ["profile", userId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await firebase
         .from("profiles")
         .select("full_name, email, employee_id, department")
         .eq("id", userId)
@@ -271,7 +271,7 @@ function EmployeeDetail({ userId, name, onBack }: { userId: string; name?: strin
   const { data: current } = useQuery({
     queryKey: ["employee-location", userId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await firebase
         .from("employee_locations")
         .select("*")
         .eq("user_id", userId)
@@ -289,7 +289,7 @@ function EmployeeDetail({ userId, name, onBack }: { userId: string; name?: strin
     queryKey: ["pings-range", userId, range.start, range.end],
     queryFn: async () => {
       if (!range.start) return [];
-      const { data } = await supabase
+      const { data } = await firebase
         .from("location_pings")
         .select("latitude, longitude, recorded_at, speed")
         .eq("user_id", userId)
@@ -303,7 +303,7 @@ function EmployeeDetail({ userId, name, onBack }: { userId: string; name?: strin
   });
 
   useEffect(() => {
-    const ch = supabase
+    const ch = firebase
       .channel(`emp-${userId}`)
       .on(
         "postgres_changes",
@@ -316,10 +316,10 @@ function EmployeeDetail({ userId, name, onBack }: { userId: string; name?: strin
         () => qc.invalidateQueries({ queryKey: ["pings-range", userId, range.start, range.end] }),
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { firebase.removeChannel(ch); };
   }, [qc, userId, range.start, range.end]);
 
-  const path = (pings ?? []).map((p) => ({ lat: p.latitude, lng: p.lng }));
+  const path = ((pings ?? []) as any[]).map((p: any) => ({ lat: p.latitude, lng: p.lng }));
   const on = current?.duty_on && current.latitude !== 0;
   const marker =
     on && current
@@ -330,10 +330,11 @@ function EmployeeDetail({ userId, name, onBack }: { userId: string; name?: strin
 
   const totalDistance = useMemo(() => {
     let d = 0;
-    for (let i = 1; i < (pings ?? []).length; i++) {
+    const pingsArr = (pings ?? []) as any[];
+    for (let i = 1; i < pingsArr.length; i++) {
       d += distanceMeters(
-        { lat: pings![i - 1].latitude, lng: pings![i - 1].lng },
-        { lat: pings![i].latitude, lng: pings![i].lng },
+        { lat: pingsArr[i - 1].latitude, lng: pingsArr[i - 1].lng },
+        { lat: pingsArr[i].latitude, lng: pingsArr[i].lng },
       );
     }
     return d;

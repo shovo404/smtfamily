@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { doc, getDoc } from "firebase/firestore";
+import { firestore } from "@/firebase";
+import { firebase } from "@/lib/firebase-client";
 
 export type AppRole = "super_admin" | "admin" | "hr" | "dhr" | "sr" | "dsr" | "fso";
 // Roles offered in the UI. super_admin and dsr are retained in the DB enum
@@ -42,14 +44,23 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: ["current-user"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await firebase.auth.getUser();
       if (!user) return null;
-      const [{ data: profile }, { data: roles }, { data: permRows }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", user.id),
-        supabase.from("role_permissions").select("role, permission, enabled"),
-      ]);
-      const roleSet = new Set((roles ?? []).map((r) => r.role as AppRole));
+      let profile = null;
+      const { data: profileById } = await firebase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      if (profileById) {
+        profile = profileById;
+      } else {
+        const profileRef = doc(firestore, "profiles", user.id);
+        const profileSnap = await getDoc(profileRef);
+        if (profileSnap.exists()) {
+          profile = { id: profileSnap.id, ...profileSnap.data() };
+        }
+      }
+
+      const { data: roles } = await firebase.from("user_roles").select("role").eq("user_id", user.id);
+      const { data: permRows } = await firebase.from("role_permissions").select("role, permission, enabled");
+      const roleSet = new Set((roles ?? []).map((r: any) => r.role as AppRole));
       const isSuperAdmin = roleSet.has("super_admin");
       const isAdmin = isSuperAdmin || roleSet.has("admin");
       const isHR = roleSet.has("hr");

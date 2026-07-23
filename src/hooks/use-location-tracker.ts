@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 const MIN_INSERT_INTERVAL_MS = 30_000; // insert a ping every ~30s max
@@ -40,7 +40,7 @@ export function useLocationTracker() {
     if (typeof window === "undefined" || !navigator.geolocation) return;
 
     // Prime last-known from server so first-open denials still carry coords
-    void supabase
+    void firebase
       .from("employee_locations")
       .select("latitude, longitude, accuracy, updated_at")
       .eq("user_id", userId)
@@ -63,7 +63,7 @@ export function useLocationTracker() {
       try {
         // Flip duty off but PRESERVE last known coords (do not overwrite with 0,0)
         if (lk) {
-          await supabase.from("employee_locations").upsert({
+          await firebase.from("employee_locations").upsert({
             user_id: userId,
             latitude: lk.lat,
             longitude: lk.lng,
@@ -72,7 +72,7 @@ export function useLocationTracker() {
             updated_at: new Date().toISOString(),
           });
         } else {
-          await supabase.from("employee_locations").upsert({
+          await firebase.from("employee_locations").upsert({
             user_id: userId,
             latitude: 0,
             longitude: 0,
@@ -84,7 +84,7 @@ export function useLocationTracker() {
         const coordText = lk
           ? ` • last @ ${lk.lat.toFixed(5)}, ${lk.lng.toFixed(5)}`
           : " • no last known location";
-        await supabase.from("notifications").insert({
+        await firebase.from("notifications").insert({
           type: "location_off",
           title: `${roleLabel} location OFF — ${fullName}`,
           message: `${reason}${coordText}`,
@@ -122,7 +122,7 @@ export function useLocationTracker() {
       lastKnown.current = { lat, lng, acc, at: iso };
 
       // Always update current position (upsert)
-      await supabase.from("employee_locations").upsert({
+      await firebase.from("employee_locations").upsert({
         user_id: userId,
         latitude: lat,
         longitude: lng,
@@ -137,7 +137,7 @@ export function useLocationTracker() {
       const moved = last ? distanceMeters({ lat: last.lat, lng: last.lng }, { lat, lng }) : Infinity;
       if (!last || now - last.t >= MIN_INSERT_INTERVAL_MS || moved >= MIN_MOVE_METERS) {
         lastInsert.current = { t: now, lat, lng };
-        await supabase.from("location_pings").insert({
+        await firebase.from("location_pings").insert({
           user_id: userId,
           latitude: lat,
           longitude: lng,

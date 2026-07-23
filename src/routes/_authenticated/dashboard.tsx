@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { Users, UserCheck, ClipboardList, CheckCircle2, Clock, MapPin, Wallet, UserX, AlertTriangle, LogIn } from "lucide-react";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -40,21 +40,21 @@ function Dashboard() {
       const today = new Date().toISOString().slice(0, 10);
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const [emp, active, todayAtt, tasksP, tasksD, ta, live, settings] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("attendance").select("check_in").eq("work_date", today),
-        supabase.from("tasks").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("tasks").select("id", { count: "exact", head: true }).eq("status", "completed"),
-        supabase.from("ta_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("employee_locations").select("user_id", { count: "exact", head: true }).gte("recorded_at", fiveMinAgo),
-        supabase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle(),
+        firebase.from("profiles").select("id", { count: "exact", head: true }),
+        firebase.from("profiles").select("id", { count: "exact", head: true }).eq("is_active", true),
+        firebase.from("attendance").select("check_in").eq("work_date", today),
+        firebase.from("tasks").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        firebase.from("tasks").select("id", { count: "exact", head: true }).eq("status", "completed"),
+        firebase.from("ta_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        firebase.from("employee_locations").select("user_id", { count: "exact", head: true }).gte("recorded_at", fiveMinAgo),
+        firebase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle(),
       ]);
       const attRows = todayAtt.data ?? [];
       const presentCount = attRows.length;
       const hoursVal = (settings.data?.value ?? {}) as { start?: string; end?: string };
       const [sh, sm] = (hoursVal.start ?? "09:00").split(":").map(Number);
       const startMin = (sh || 0) * 60 + (sm || 0);
-      const lateCount = attRows.filter((r) => {
+      const lateCount = attRows.filter((r: any) => {
         if (!r.check_in) return false;
         const d = new Date(r.check_in);
         return d.getHours() * 60 + d.getMinutes() > startMin;

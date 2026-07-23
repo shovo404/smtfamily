@@ -4,14 +4,14 @@ export const Route = createFileRoute("/api/public/seed-demo")({
   server: {
     handlers: {
       GET: async () => {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { firebaseAdmin } = await import("@/lib/firebase-admin");
         const users = [
           { email: "admin@smt.family", password: "Admin@1234", full_name: "Demo Admin", role: "admin" as const },
           { email: "sr@smt.family", password: "Sr@1234", full_name: "Demo SR", role: "sr" as const },
         ];
         const results: any[] = [];
         for (const u of users) {
-          const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          const { data, error } = await firebaseAdmin.auth.admin.createUser({
             email: u.email,
             password: u.password,
             email_confirm: true,
@@ -22,8 +22,8 @@ export const Route = createFileRoute("/api/public/seed-demo")({
             continue;
           }
           if (data.user) {
-            await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user.id);
-            await supabaseAdmin.from("user_roles").insert({ user_id: data.user.id, role: u.role });
+            await firebaseAdmin.from("user_roles").delete().eq("user_id", data.user.id);
+            await firebaseAdmin.from("user_roles").insert({ user_id: data.user.id, role: u.role });
           }
           results.push({ email: u.email, ok: true });
         }

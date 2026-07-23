@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { updateAttendanceTimes, resetUserMonthAttendance } from "@/lib/admin-users.functions";
 import { LogIn, LogOut, MapPin, Camera, X, Pencil, Clock, RotateCcw } from "lucide-react";
@@ -158,7 +158,11 @@ function AttendancePage() {
   const { data: hours } = useQuery({
     queryKey: ["office-hours"],
     queryFn: async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle();
+      const { data, error } = await firebase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle();
+      if (error) {
+        console.warn("Office hours query error:", error.message);
+        return { start: "09:00", end: "18:00" };
+      }
       const v = (data?.value ?? {}) as { start?: string; end?: string };
       return { start: v.start ?? "09:00", end: v.end ?? "18:00" };
     },
@@ -169,7 +173,11 @@ function AttendancePage() {
   const { data: today } = useQuery({
     queryKey: ["attendance-today", me?.user.id],
     queryFn: async () => {
-      const { data } = await supabase.from("attendance").select("*").eq("user_id", me!.user.id).eq("work_date", todayStr()).maybeSingle();
+      const { data, error } = await firebase.from("attendance").select("*").eq("user_id", me!.user.id).eq("work_date", todayStr()).maybeSingle();
+      if (error) {
+        console.warn("Today attendance query error:", error.message);
+        return null;
+      }
       return data;
     },
     enabled: !!me,
@@ -182,13 +190,16 @@ function AttendancePage() {
   const { data: history } = useQuery({
     queryKey: ["attendance-mine", me?.user.id, monthStart],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await firebase
         .from("attendance")
         .select("*")
         .eq("user_id", me!.user.id)
-        .gte("work_date", monthStart)
-        .order("work_date", { ascending: false });
-      return data ?? [];
+        .gte("work_date", monthStart);
+      if (error) {
+        console.warn("Attendance history query error:", error.message);
+        return [];
+      }
+      return (data ?? []).sort((a: any, b: any) => (b.work_date || "").localeCompare(a.work_date || ""));
     },
     enabled: !!me,
   });
@@ -209,11 +220,16 @@ function AttendancePage() {
   const { data: adminList } = useQuery({
     queryKey: ["attendance-admin", todayStr()],
     queryFn: async () => {
-      const { data } = await supabase.from("attendance").select("*").eq("work_date", todayStr()).order("check_in", { ascending: false });
-      const ids = [...new Set((data ?? []).map((a) => a.user_id))];
-      const { data: profiles } = await supabase.from("profiles").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-      const map = new Map(profiles?.map((p) => [p.id, p]) ?? []);
-      return (data ?? []).map((a) => ({ ...a, profile: map.get(a.user_id) }));
+      const { data, error } = await firebase.from("attendance").select("*").eq("work_date", todayStr());
+      if (error) {
+        console.warn("Admin attendance query error:", error.message);
+        return [];
+      }
+      const sorted = (data ?? []).sort((a: any, b: any) => ((b.check_in || "") < (a.check_in || "") ? -1 : 1));
+      const ids = [...new Set(sorted.map((a: any) => a.user_id))];
+      const { data: profiles } = await firebase.from("profiles").select("id, full_name, email").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+      const map = new Map(profiles?.map((p: any) => [p.id, p]) ?? []);
+      return sorted.map((a: any) => ({ ...a, profile: map.get(a.user_id) }));
     },
     enabled: !!me?.isAdmin,
   });
@@ -238,7 +254,7 @@ function AttendancePage() {
 
   const uploadPhoto = async (blob: Blob, kind: "in" | "out"): Promise<string> => {
     const path = `${me!.user.id}/${todayStr()}-${kind}-${Date.now()}.jpg`;
-    const { error } = await supabase.storage.from("attendance-faces").upload(path, blob, {
+    const { error } = await firebase.storage.from("attendance-faces").upload(path, blob, {
       contentType: "image/jpeg",
       upsert: true,
     });
@@ -253,11 +269,13 @@ function AttendancePage() {
     setBusy(true);
     try {
       const [photoPath, gps] = await Promise.all([uploadPhoto(blob, kind), getGPS()]);
+      const now = new Date().toISOString();
+      const todayStrLocal = todayStr();
       if (kind === "in") {
-        const { error } = await supabase.from("attendance").upsert({
+        const { error } = await firebase.from("attendance").upsert({
           user_id: me.user.id,
-          work_date: todayStr(),
-          check_in: new Date().toISOString(),
+          work_date: todayStrLocal,
+          check_in: now,
           check_in_lat: gps?.lat ?? null,
           check_in_lng: gps?.lng ?? null,
           check_in_photo_url: photoPath,
@@ -266,13 +284,13 @@ function AttendancePage() {
         if (error) throw error;
         toast.success("Checked in");
       } else {
-        const { error } = await supabase.from("attendance").update({
-          check_out: new Date().toISOString(),
+        const { error } = await firebase.from("attendance").update({
+          check_out: now,
           check_out_lat: gps?.lat ?? null,
           check_out_lng: gps?.lng ?? null,
           check_out_photo_url: photoPath,
           check_out_face_verified: true,
-        }).eq("user_id", me.user.id).eq("work_date", todayStr());
+        }).eq("user_id", me.user.id).eq("work_date", todayStrLocal);
         if (error) throw error;
         toast.success("Checked out");
       }
@@ -388,7 +406,7 @@ function AttendancePage() {
               </tr>
             </thead>
             <tbody>
-              {(history ?? []).map((a) => {
+              {(history ?? []).map((a: any) => {
                 const hours = a.check_in && a.check_out
                   ? ((new Date(a.check_out).getTime() - new Date(a.check_in).getTime()) / 3600000).toFixed(1)
                   : "—";
@@ -436,7 +454,7 @@ function AttendancePage() {
                 </tr>
               </thead>
               <tbody>
-                {(adminList ?? []).map((a) => {
+                {(adminList ?? []).map((a: any) => {
                   const hours = a.check_in && a.check_out
                     ? ((new Date(a.check_out).getTime() - new Date(a.check_in).getTime()) / 3600000).toFixed(1)
                     : "—";

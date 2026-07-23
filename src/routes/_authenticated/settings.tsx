@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { useAdminGuard } from "@/hooks/use-admin-guard";
 import { setRolePermission, setOfficeHours, setAppLogo } from "@/lib/admin-users.functions";
 import {
@@ -29,7 +29,7 @@ function SettingsPage() {
   const { data: hours } = useQuery({
     queryKey: ["office-hours"],
     queryFn: async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle();
+      const { data } = await firebase.from("app_settings").select("value").eq("key", "office_hours").maybeSingle();
       const v = (data?.value ?? {}) as { start?: string; end?: string };
       return { start: v.start ?? "09:00", end: v.end ?? "18:00" };
     },
@@ -53,7 +53,7 @@ function SettingsPage() {
   const { data: rows } = useQuery({
     queryKey: ["role-permissions"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("role_permissions").select("role, permission, enabled");
+      const { data, error } = await firebase.from("role_permissions").select("role, permission, enabled");
       if (error) throw error;
       return data ?? [];
     },
@@ -84,7 +84,7 @@ function SettingsPage() {
   const { data: appLogo } = useQuery({
     queryKey: ["app-logo"],
     queryFn: async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "app_logo").maybeSingle();
+      const { data } = await firebase.from("app_settings").select("value").eq("key", "app_logo").maybeSingle();
       const v = (data?.value ?? {}) as { url?: string };
       return v.url || null;
     },
@@ -97,16 +97,16 @@ function SettingsPage() {
     try {
       const ext = file.name.split(".").pop() || "png";
       const path = `app-logo/logo.${ext}`;
-      const { error: uploadErr } = await supabase.storage
+      const { error: uploadErr } = await firebase.storage
         .from("profile-photos")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = await supabase.storage
+      const { data: urlData } = await firebase.storage
         .from("profile-photos")
         .getPublicUrl(path);
 
-      await setLogoFn({ data: { logoUrl: urlData.publicUrl } });
+      await setLogoFn({ data: { logoUrl: urlData.publicUrl! } });
       qc.invalidateQueries({ queryKey: ["app-logo"] });
       toast.success("App logo updated");
     } catch (err) {

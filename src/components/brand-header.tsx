@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { firebase } from "@/lib/firebase-client";
 import { Building2 } from "lucide-react";
 
 const DEFAULT_LOGO = "/image/company-logo.png";
@@ -43,7 +43,7 @@ export function BrandHeader({ size = "md", variant = "vertical", className = "" 
   const { data: appLogo } = useQuery({
     queryKey: ["app-logo"],
     queryFn: async () => {
-      const { data } = await supabase.from("app_settings").select("value").eq("key", "app_logo").maybeSingle();
+      const { data } = await firebase.from("app_settings").select("value").eq("key", "app_logo").maybeSingle();
       const v = (data?.value ?? {}) as { url?: string };
       return v.url || null;
     },
