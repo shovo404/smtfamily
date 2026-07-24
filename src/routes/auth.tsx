@@ -8,7 +8,20 @@ export const Route = createFileRoute("/auth")({
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
     const { data } = await firebase.auth.getSession();
-    if (data.session) throw redirect({ to: "/dashboard" });
+    if (data.session) {
+      const { data: userData } = await firebase.auth.getUser();
+      if (userData?.user) {
+        const { data: profile } = await firebase
+          .from("users")
+          .select("role")
+          .eq("id", userData.user.id)
+          .maybeSingle();
+        const role = profile?.role ?? "fso";
+        const home = role === "super_admin" || role === "admin" || role === "hr"
+          ? "/dashboard" : "/attendance";
+        throw redirect({ to: home });
+      }
+    }
   },
   head: () => ({
     meta: [
@@ -26,8 +39,18 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = firebase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") navigate({ to: "/dashboard" });
+    const { data: sub } = firebase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        const { data: profile } = await firebase
+          .from("users")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        const role = profile?.role ?? "fso";
+        const home = role === "super_admin" || role === "admin" || role === "hr"
+          ? "/dashboard" : "/attendance";
+        navigate({ to: home });
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useRouteGuard } from "@/hooks/use-route-guard";
 import { Bell, WifiOff } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
@@ -10,12 +11,15 @@ export const Route = createFileRoute("/_authenticated/notifications")({
 });
 
 function NotificationsPage() {
+  const { allowed, isLoading } = useRouteGuard();
+  if (isLoading || !allowed) return null;
+
   const { data: me } = useCurrentUser();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   useEffect(() => {
-    if (me && !me.isAdmin) navigate({ to: "/dashboard", replace: true });
+    if (me && !me.isAdmin && !me.isHR) navigate({ to: "/dashboard", replace: true });
   }, [me, navigate]);
 
   const { data: notifs } = useQuery({

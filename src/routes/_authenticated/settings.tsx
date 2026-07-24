@@ -12,7 +12,7 @@ import {
   type AppRole,
   type PermissionKey,
 } from "@/hooks/use-current-user";
-import { Shield, Clock, Image } from "lucide-react";
+import { Shield, Clock, Image, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — SMT Family" }] }),
@@ -22,6 +22,9 @@ export const Route = createFileRoute("/_authenticated/settings")({
 function SettingsPage() {
   const { me, allowed } = useAdminGuard();
   const qc = useQueryClient();
+  const [start, setStart] = useState("09:00");
+  const [end, setEnd] = useState("18:00");
+
   const { data: hours } = useQuery({
     queryKey: ["office-hours"],
     queryFn: async () => {
@@ -30,15 +33,12 @@ function SettingsPage() {
       return { start: v.start ?? "09:00", end: v.end ?? "18:00" };
     },
   });
-
-  const [start, setStart] = useState("09:00");
-  const [end, setEnd] = useState("18:00");
   useEffect(() => {
     if (hours) { setStart(hours.start); setEnd(hours.end); }
   }, [hours]);
 
   const saveHours = useMutation({
-    mutationFn: async () => {       await setOfficeHours({ data: { start, end } }); },
+    mutationFn: async () => { await setOfficeHours({ data: { start, end } }); },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["office-hours"] });
       toast.success("Office hours updated");
@@ -46,7 +46,7 @@ function SettingsPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  const { data: rows } = useQuery({
+  const { data: permRows } = useQuery({
     queryKey: ["role-permissions"],
     queryFn: async () => {
       const { data, error } = await firebase.from("role_permissions").select("role, permission, enabled");
@@ -56,7 +56,7 @@ function SettingsPage() {
     enabled: allowed,
   });
 
-  const toggle = useMutation({
+  const togglePerm = useMutation({
     mutationFn: async (v: { role: AppRole; permission: PermissionKey; enabled: boolean }) => {
       await setRolePermission({ data: v });
     },
@@ -68,11 +68,14 @@ function SettingsPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
+  const setHoursFn = async () => { await saveHours.mutateAsync(); };
+
   if (!allowed || !me) return null;
 
   const canManageSettings = me.isAdmin || me.isHR;
   const canManagePerms = me.perms.managePermissions;
 
+  const setLogoFn = async (data: { logoUrl: string }) => { await setAppLogo({ data }); };
   const logoFileRef = useRef<HTMLInputElement | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
 
@@ -101,7 +104,7 @@ function SettingsPage() {
         .from("profile-photos")
         .getPublicUrl(path);
 
-      await setAppLogo({ data: { logoUrl: urlData.publicUrl! } });
+      await setLogoFn({ logoUrl: urlData.publicUrl! });
       qc.invalidateQueries({ queryKey: ["app-logo"] });
       toast.success("App logo updated");
     } catch (err) {
@@ -112,6 +115,14 @@ function SettingsPage() {
     }
   };
 
+  const map = new Map<string, boolean>();
+  for (const r of permRows ?? []) map.set(`${r.role}:${r.permission}`, r.enabled);
+  const isEnabled = (role: AppRole, perm: PermissionKey) => {
+    if (role === "super_admin" || role === "admin") return true;
+    const fromDb = map.get(`${role}:${perm}`);
+    return fromDb ?? false;
+  };
+
   if (!canManageSettings && !canManagePerms && !me.isAdmin) {
     return (
       <div className="premium-card p-6 text-center text-sm text-muted-foreground">
@@ -119,12 +130,6 @@ function SettingsPage() {
       </div>
     );
   }
-
-  const map = new Map<string, boolean>();
-  for (const r of rows ?? []) map.set(`${r.role}:${r.permission}`, r.enabled);
-  const isEnabled = (role: AppRole, perm: PermissionKey) => map.get(`${role}:${perm}`) ?? false;
-
-  const editableRoles: AppRole[] = ALL_ROLES;
 
   return (
     <div className="space-y-5">
@@ -162,7 +167,7 @@ function SettingsPage() {
           <div className="mt-3 flex justify-end">
             <button onClick={() => saveHours.mutate()} disabled={saveHours.isPending}
               className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-              {saveHours.isPending ? "Saving…" : "Save Office Hours"}
+              {saveHours.isPending ? "Saving\u2026" : "Save Office Hours"}
             </button>
           </div>
         </div>
@@ -192,7 +197,7 @@ function SettingsPage() {
                 disabled={logoUploading}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
               >
-                {logoUploading ? "Uploading…" : appLogo ? "Change Logo" : "Upload Logo"}
+                {logoUploading ? "Uploading\u2026" : appLogo ? "Change Logo" : "Upload Logo"}
               </button>
               <input
                 ref={logoFileRef}
@@ -206,24 +211,32 @@ function SettingsPage() {
         </div>
       )}
 
-      {!canManagePerms && (
-        <p className="text-center text-xs text-muted-foreground">
-          You don't have permission to edit role permissions.
-        </p>
-      )}
-
-
-      {canManagePerms && (
       <div className="space-y-4">
-        {editableRoles.map((role) => {
-          const locked = role === "admin";
+        <div className="flex items-center gap-2">
+          <Lock className="h-4 w-4 text-primary" />
+          <h2 className="font-semibold">Role Permissions</h2>
+        </div>
+        {!canManagePerms && (
+          <p className="text-center text-xs text-muted-foreground">
+            You don't have permission to edit role permissions.
+          </p>
+        )}
+        {ALL_ROLES.map((role) => {
+          const locked = role === "super_admin" || role === "admin";
+          const canEdit = canManagePerms && (!locked || (me.isSuperAdmin && role === "admin"));
+          const isSuperAdminRow = role === "super_admin";
           return (
             <div key={role} className="premium-card p-4">
               <div className="mb-3 flex items-center justify-between">
-                <div className="font-semibold uppercase tracking-wide">{role.replace("_", " ")}</div>
+                <div className="font-semibold uppercase tracking-wide">{role.replace(/_/g, " ")}</div>
                 {locked && (
                   <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                    Always full access
+                    <Lock className="inline h-3 w-3 mr-1" />Always full access
+                  </span>
+                )}
+                {isSuperAdminRow && (
+                  <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+                    System Owner
                   </span>
                 )}
               </div>
@@ -234,16 +247,16 @@ function SettingsPage() {
                     <label
                       key={perm}
                       className={`flex cursor-pointer items-center justify-between rounded-md border border-border/60 px-3 py-2 text-sm ${
-                        locked ? "opacity-60" : "hover:bg-accent/40"
+                        !canEdit ? "opacity-60" : "hover:bg-accent/40"
                       }`}
                     >
                       <span>{PERMISSION_LABELS[perm]}</span>
                       <input
                         type="checkbox"
                         checked={on}
-                        disabled={locked || toggle.isPending}
+                        disabled={!canEdit || togglePerm.isPending}
                         onChange={(e) =>
-                          toggle.mutate({ role, permission: perm, enabled: e.target.checked })
+                          togglePerm.mutate({ role, permission: perm, enabled: e.target.checked })
                         }
                         className="h-5 w-5 accent-primary"
                       />
@@ -255,7 +268,6 @@ function SettingsPage() {
           );
         })}
       </div>
-      )}
 
       <p className="text-center text-xs text-muted-foreground">
         Changes apply on next sign-in or page refresh for affected users.

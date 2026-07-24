@@ -1,10 +1,15 @@
 import { firebase } from "@/lib/firebase-client";
+import { supabase } from "@/lib/firebase-client";
+import { logAuditEvent } from "@/lib/audit-log";
 
 type AppRole = "super_admin" | "admin" | "hr" | "dhr" | "sr" | "fso" | "dsr";
 
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 
-export async function createEmployee({ data }: { data: { email: string; password: string; full_name: string; phone?: string; department?: string; role: AppRole } }) {
+export async function createEmployee({ data }: { data: {
+  email: string; password: string; full_name: string; phone?: string;
+  department?: string; role: AppRole; employee_id?: string; is_active?: boolean;
+} }) {
   const { data: authData, error: signUpError } = await firebase.auth.signUp({
     email: data.email,
     password: data.password,
@@ -18,7 +23,8 @@ export async function createEmployee({ data }: { data: { email: string; password
     role: data.role,
     phone: data.phone ?? null,
     department: data.department ?? null,
-    is_active: true,
+    employee_id: data.employee_id ?? null,
+    is_active: data.is_active ?? true,
     updated_at: new Date().toISOString(),
   }).eq("id", authData.user.id);
   fail(error);
@@ -101,11 +107,12 @@ export async function updateAttendanceTimes({ data }: { data: { attendanceId: st
   return { ok: true };
 }
 
-export async function updateEmployeeProfile({ data }: { data: { userId: string; full_name: string; phone?: string; department?: string } }) {
+export async function updateEmployeeProfile({ data }: { data: { userId: string; full_name: string; phone?: string; department?: string; employee_id?: string } }) {
   const { error } = await firebase.from("users").update({
     full_name: data.full_name,
     phone: data.phone ?? null,
     department: data.department ?? null,
+    employee_id: data.employee_id ?? null,
     updated_at: new Date().toISOString(),
   }).eq("id", data.userId);
   fail(error);
@@ -121,4 +128,53 @@ export async function updateOwnProfilePhoto({ data }: { data: { photoUrl: string
   }).eq("id", user.user.id);
   fail(error);
   return { ok: true };
+}
+
+export async function resetEmployeeAttendance({ data }: { data: { userId: string } }) {
+  const { data: profile } = await firebase.from("users").select("full_name, employee_id, email").eq("id", data.userId).single();
+  if (!profile) throw new Error("Employee not found");
+
+  const results: string[] = [];
+
+  const { error: attErr, count: attCount } = await firebase
+    .from("attendance")
+    .delete()
+    .eq("user_id", data.userId);
+  if (attErr) throw attErr;
+  results.push(`attendance:${attCount ?? 0}`);
+
+  const { error: pingErr, count: pingCount } = await firebase
+    .from("location_pings")
+    .delete()
+    .eq("user_id", data.userId);
+  if (pingErr) throw pingErr;
+  results.push(`pings:${pingCount ?? 0}`);
+
+  const { error: locErr } = await firebase
+    .from("employee_locations")
+    .upsert({ user_id: data.userId, latitude: 0, longitude: 0, duty_on: false, updated_at: new Date().toISOString() });
+  if (locErr) throw locErr;
+  results.push("location:reset");
+
+  try {
+    const { data: files } = await supabase.storage.from("attendance-faces").list(data.userId, { limit: 100 });
+    if (files && files.length > 0) {
+      const paths = files.map((f: any) => `${data.userId}/${f.name}`);
+      await supabase.storage.from("attendance-faces").remove(paths);
+      results.push(`photos:${files.length}`);
+    }
+  } catch (e) {
+    console.warn("Storage cleanup skipped:", e);
+    results.push("photos:skipped");
+  }
+
+  await logAuditEvent({
+    action: "attendance_reset",
+    target_user_id: data.userId,
+    target_name: profile.full_name || profile.email,
+    target_employee_id: profile.employee_id ?? undefined,
+    details: `Reset attendance (${results.join(", ")})`,
+  });
+
+  return { ok: true, details: results };
 }

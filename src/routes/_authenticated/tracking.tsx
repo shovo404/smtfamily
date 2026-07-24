@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useRouteGuard } from "@/hooks/use-route-guard";
 import { LiveMap, type LiveMapMarker } from "@/components/live-map";
 import { MapPin, WifiOff, ChevronLeft, Clock, Route as RouteIcon, Calendar, Users, Navigation } from "lucide-react";
 
@@ -81,6 +82,8 @@ function dateRange(key: string): { start: string; end: string } {
 }
 
 function TrackingPage() {
+  const { allowed, isLoading } = useRouteGuard("viewLiveTracking");
+  if (isLoading || !allowed) return null;
   const { data: me } = useCurrentUser();
   const navigate = useNavigate();
   const qc = useQueryClient();

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { firebase } from "@/lib/firebase-client";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useRouteGuard } from "@/hooks/use-route-guard";
 import { FileText, Download, Printer, Calendar } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -38,6 +39,9 @@ function daysInMonth(ym: string) {
 }
 
 function ReportsPage() {
+  const { allowed, isLoading } = useRouteGuard("viewReports");
+  if (isLoading || !allowed) return null;
+
   const { data: me } = useCurrentUser();
   const isAdmin = !!me?.isAdmin || !!me?.perms.viewReports;
   const now = new Date();

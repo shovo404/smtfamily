@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { firebase } from "@/lib/firebase-client";
-import { useAdminGuard } from "@/hooks/use-admin-guard";
+import { useRouteGuard } from "@/hooks/use-route-guard";
 import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/tasks")({
 const STATUSES = ["pending", "in_progress", "completed", "overdue"] as const;
 
 function TasksPage() {
-  const { me, allowed } = useAdminGuard();
+  const { me, allowed } = useRouteGuard("viewTasks");
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
 

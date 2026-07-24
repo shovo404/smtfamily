@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, ClipboardList, MapPin, Wallet, UserCircle, LogOut, Shield, Radar, Bell, Menu, X, FileText } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, MapPin, Wallet, UserCircle, LogOut, Shield, Radar, Bell, Menu, X, FileText, ScrollText, CalendarCheck } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { firebase } from "@/lib/firebase-client";
@@ -10,23 +10,30 @@ import { DevicePermissionGate } from "@/components/device-permission-gate";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard; show: (me: NonNullable<ReturnType<typeof useCurrentUser>["data"]>) => boolean };
 
-const NAV: NavItem[] = [
-  { to: "/dashboard", label: "Home", icon: LayoutDashboard, show: (me) => me.isStaff },
-  { to: "/employees", label: "Team", icon: Users, show: (me) => me.perms.manageEmployees || me.isDHR },
-  { to: "/tracking", label: "Track", icon: Radar, show: (me) => me.perms.viewLiveTracking },
-  { to: "/tasks", label: "Tasks", icon: ClipboardList, show: (me) => me.perms.viewTasks },
-  { to: "/attendance", label: "Attend", icon: MapPin, show: () => true },
-  { to: "/reports", label: "Report", icon: FileText, show: () => true },
-  { to: "/ta", label: "TA", icon: Wallet, show: (me) => me.perms.viewTA },
-  { to: "/notifications", label: "Alerts", icon: Bell, show: (me) => me.isAdmin },
-  { to: "/settings", label: "Perms", icon: Shield, show: (me) => me.perms.managePermissions },
-  { to: "/profile", label: "Me", icon: UserCircle, show: () => true },
-];
+function getNavItems(me: NonNullable<ReturnType<typeof useCurrentUser>["data"]>): NavItem[] {
+  const items: NavItem[] = [
+    { to: "/dashboard", label: "Home", icon: LayoutDashboard, show: () => me.isStaff },
+    { to: "/employees", label: "Team", icon: Users, show: () => me.perms.manageEmployees || me.isHR || me.isDHR },
+    { to: "/tracking", label: "Track", icon: Radar, show: () => me.perms.viewLiveTracking },
+    { to: "/tasks", label: "Tasks", icon: ClipboardList, show: () => me.perms.viewTasks },
+    { to: "/attendance", label: "Attend", icon: MapPin, show: () => true },
+    { to: "/attendance-management", label: "Attend Mgmt", icon: CalendarCheck, show: () => me.isAdmin },
+    { to: "/reports", label: "Report", icon: FileText, show: () => me.isStaff || me.perms.viewReports },
+    { to: "/ta", label: "TA", icon: Wallet, show: () => me.perms.viewTA },
+    { to: "/notifications", label: "Alerts", icon: Bell, show: () => me.isAdmin || me.isHR },
+    { to: "/settings", label: "Perms", icon: Shield, show: () => me.perms.managePermissions },
+    { to: "/audit-log", label: "Audit", icon: ScrollText, show: () => me.isSuperAdmin },
+    { to: "/profile", label: "Me", icon: UserCircle, show: () => true },
+  ];
+  return items.filter((n) => n.show(me));
+}
 
-function roleLabel(me: ReturnType<typeof useCurrentUser>["data"]) {
+function roleBadge(me: ReturnType<typeof useCurrentUser>["data"]) {
   if (!me) return null;
-  if (me.roles.has("admin") || me.isSuperAdmin) return "Admin";
+  if (me.isSuperAdmin) return "Super Admin";
+  if (me.roles.has("admin")) return "Admin";
   if (me.roles.has("hr")) return "HR";
+  if (me.roles.has("dsr")) return "DSR";
   if (me.roles.has("dhr")) return "DHR";
   if (me.roles.has("fso")) return "FSO";
   if (me.roles.has("sr")) return "SR";
@@ -40,18 +47,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const nav = me ? NAV.filter((n) => n.show(me)) : [];
-  const badge = roleLabel(me);
+  const nav = me ? getNavItems(me) : [];
+  const badge = roleBadge(me);
   const useDrawer = !!me?.isStaff;
 
-  // Track location for field employees (SR/FSO/DSR/DHR-in-field)
   useLocationTracker();
 
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
 
-  // Unread notifications badge for admins
   const { data: unread } = useQuery({
     queryKey: ["notifications-unread"],
     enabled: !!me?.isAdmin,
@@ -98,7 +103,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className={`mx-auto flex min-h-screen w-full flex-col bg-transparent ${useDrawer ? "max-w-7xl" : "max-w-md"}`}>
       <DevicePermissionGate />
-      {/* Top app bar */}
       <header
         className="glass sticky top-0 z-30 flex items-center gap-3 px-4"
         style={{ paddingTop: "max(env(safe-area-inset-top), 0.5rem)", paddingBottom: "0.5rem" }}
@@ -134,7 +138,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
       </header>
 
-      {/* Scrollable content */}
       <main
         className="flex-1 px-4 pt-4"
         style={{
@@ -146,7 +149,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      {/* Slide-in drawer for staff/admin */}
       {useDrawer && (
         <>
           <div
@@ -208,7 +210,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </>
       )}
 
-      {/* Bottom tab bar — only for field users (non-staff) */}
       {!useDrawer && (
         <nav
           className="glass fixed inset-x-0 bottom-0 z-30 mx-auto flex w-full max-w-md items-stretch justify-around border-t border-sidebar-border/60 px-1"

@@ -7,7 +7,13 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
     const { data, error } = await firebase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    const { data: profile } = await firebase
+      .from("users")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    const role = profile?.role ?? "fso";
+    return { user: data.user, role };
   },
   component: () => (
     <AppShell>

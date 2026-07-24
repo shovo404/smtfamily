@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { firebase } from "@/lib/firebase-client";
-import { Users, UserCheck, ClipboardList, CheckCircle2, Clock, MapPin, Wallet, UserX, AlertTriangle, LogIn } from "lucide-react";
-import { useAdminGuard } from "@/hooks/use-admin-guard";
+import { Users, UserCheck, ClipboardList, CheckCircle2, Clock, MapPin, Wallet, UserX, AlertTriangle, LogIn, User, Bell, Calendar } from "lucide-react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -30,8 +30,64 @@ function Stat({ icon: Icon, label, value, tone = "primary" }: { icon: typeof Use
   );
 }
 
-function Dashboard() {
-  const { allowed } = useAdminGuard();
+function HRDashboard() {
+  const { data: me } = useCurrentUser();
+
+  const { data: stats } = useQuery({
+    queryKey: ["hr-dashboard"],
+    queryFn: async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const [emp, todayAtt] = await Promise.all([
+        firebase.from("users").select("id, full_name, email, role, is_active").order("created_at", { ascending: false }).limit(10),
+        firebase.from("attendance").select("user_id, check_in").eq("work_date", today),
+      ]);
+      return {
+        total: emp.data?.length ?? 0,
+        present: todayAtt.data?.length ?? 0,
+        employees: emp.data ?? [],
+      };
+    },
+  });
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Welcome{me?.profile?.full_name ? `, ${me.profile.full_name}` : ""}. Team overview.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Stat icon={Users} label="Total Staff" value={stats?.total ?? "—"} />
+        <Stat icon={LogIn} label="Present Today" value={stats?.present ?? "—"} />
+      </div>
+      <div className="premium-card p-4">
+        <h2 className="text-base font-semibold mb-3">Recent Employees</h2>
+        <div className="space-y-2">
+          {(stats?.employees ?? []).slice(0, 5).map((emp: any) => (
+            <div key={emp.id} className="flex items-center gap-3 text-sm">
+              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/20 text-primary">
+                <User className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{emp.full_name || emp.email}</div>
+                <div className="text-[11px] text-muted-foreground uppercase">{emp.role}</div>
+              </div>
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${emp.is_active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                {emp.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          ))}
+          {(stats?.employees ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">No employees yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminDashboard() {
   const { data: me } = useCurrentUser();
 
   const { data: stats } = useQuery({
@@ -71,10 +127,7 @@ function Dashboard() {
         live: live.count ?? 0,
       };
     },
-    enabled: allowed,
   });
-
-  if (!allowed) return null;
 
   return (
     <div className="space-y-5">
@@ -103,9 +156,25 @@ function Dashboard() {
         <p className="mt-2 text-xs text-muted-foreground">
           {stats
             ? `${stats.present} of ${stats.active} active employees checked in today${stats.late > 0 ? `, ${stats.late} late` : ""}.`
-            : "Loading…"}
+            : "Loading\u2026"}
         </p>
       </div>
     </div>
   );
+}
+
+function Dashboard() {
+  const { data: me, isLoading } = useCurrentUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isLoading || !me) return;
+    if (me.isField) navigate({ to: "/attendance", replace: true });
+  }, [me, isLoading, navigate]);
+
+  if (!me || isLoading) return null;
+  if (me.isField) return null;
+
+  if (me.isHR && !me.isAdmin) return <HRDashboard />;
+  return <AdminDashboard />;
 }

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { firebase } from "@/lib/firebase-client";
-import { useAdminGuard } from "@/hooks/use-admin-guard";
+import { useRouteGuard } from "@/hooks/use-route-guard";
 import { Plus, Check, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/ta")({
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/ta")({
 });
 
 function TAPage() {
-  const { me, allowed } = useAdminGuard();
+  const { me, allowed } = useRouteGuard("viewTA");
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
 
