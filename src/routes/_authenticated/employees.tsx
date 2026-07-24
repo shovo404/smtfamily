@@ -132,7 +132,7 @@ function EmployeesPage() {
       qc.invalidateQueries({ queryKey: ["employees"] });
       toast.success(`Attendance reset successfully (${result.details?.join(", ")})`);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Reset failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Reset failed: " + String(e)),
   });
 
   if (!me || !me.isStaff) return null;

@@ -230,7 +230,7 @@ function AttendanceManagementPage() {
       qc.invalidateQueries({ queryKey: ["attendance-mgmt"] });
       toast.success(`Attendance reset (${result.details?.join(", ")})`);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Reset failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Reset failed: " + String(e)),
   });
 
   const executeReset = async () => {

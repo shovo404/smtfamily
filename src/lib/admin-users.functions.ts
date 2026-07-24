@@ -92,7 +92,7 @@ export async function resetUserMonthAttendance({ data }: { data: { userId: strin
   const [year, month] = data.month.split("-").map(Number);
   const end = `${data.month}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
   const { error } = await firebase.from("attendance").delete().eq("user_id", data.userId).gte("work_date", `${data.month}-01`).lte("work_date", end);
-  fail(error);
+  if (error) throwErr("attendance month delete", error);
   return { ok: true };
 }
 
@@ -130,6 +130,12 @@ export async function updateOwnProfilePhoto({ data }: { data: { photoUrl: string
   return { ok: true };
 }
 
+function throwErr(context: string, err: unknown): never {
+  const msg = err && typeof err === "object" && "message" in err ? String((err as any).message) : String(err);
+  console.error(`[resetEmployeeAttendance] ${context} failed:`, err);
+  throw new Error(msg);
+}
+
 export async function resetEmployeeAttendance({ data }: { data: { userId: string } }) {
   const { data: profile } = await firebase.from("users").select("full_name, employee_id, email").eq("id", data.userId).single();
   if (!profile) throw new Error("Employee not found");
@@ -140,20 +146,20 @@ export async function resetEmployeeAttendance({ data }: { data: { userId: string
     .from("attendance")
     .delete()
     .eq("user_id", data.userId);
-  if (attErr) throw attErr;
+  if (attErr) throwErr("attendance delete", attErr);
   results.push(`attendance:${attCount ?? 0}`);
 
   const { error: pingErr, count: pingCount } = await firebase
     .from("location_pings")
     .delete()
     .eq("user_id", data.userId);
-  if (pingErr) throw pingErr;
+  if (pingErr) throwErr("location_pings delete", pingErr);
   results.push(`pings:${pingCount ?? 0}`);
 
   const { error: locErr } = await firebase
     .from("employee_locations")
     .upsert({ user_id: data.userId, latitude: 0, longitude: 0, duty_on: false, updated_at: new Date().toISOString() });
-  if (locErr) throw locErr;
+  if (locErr) throwErr("employee_locations upsert", locErr);
   results.push("location:reset");
 
   try {
@@ -164,7 +170,7 @@ export async function resetEmployeeAttendance({ data }: { data: { userId: string
       results.push(`photos:${files.length}`);
     }
   } catch (e) {
-    console.warn("Storage cleanup skipped:", e);
+    console.warn("[resetEmployeeAttendance] storage cleanup skipped:", e);
     results.push("photos:skipped");
   }
 
