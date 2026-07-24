@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { firebase } from "@/lib/firebase-client";
@@ -23,9 +22,6 @@ export const Route = createFileRoute("/_authenticated/settings")({
 function SettingsPage() {
   const { me, allowed } = useAdminGuard();
   const qc = useQueryClient();
-  const setPermFn = useServerFn(setRolePermission);
-  const setHoursFn = useServerFn(setOfficeHours);
-
   const { data: hours } = useQuery({
     queryKey: ["office-hours"],
     queryFn: async () => {
@@ -42,7 +38,7 @@ function SettingsPage() {
   }, [hours]);
 
   const saveHours = useMutation({
-    mutationFn: async () => { await setHoursFn({ data: { start, end } }); },
+    mutationFn: async () => {       await setOfficeHours({ data: { start, end } }); },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["office-hours"] });
       toast.success("Office hours updated");
@@ -62,7 +58,7 @@ function SettingsPage() {
 
   const toggle = useMutation({
     mutationFn: async (v: { role: AppRole; permission: PermissionKey; enabled: boolean }) => {
-      await setPermFn({ data: v });
+      await setRolePermission({ data: v });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["role-permissions"] });
@@ -77,7 +73,6 @@ function SettingsPage() {
   const canManageSettings = me.isAdmin || me.isHR;
   const canManagePerms = me.perms.managePermissions;
 
-  const setLogoFn = useServerFn(setAppLogo);
   const logoFileRef = useRef<HTMLInputElement | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
 
@@ -106,7 +101,7 @@ function SettingsPage() {
         .from("profile-photos")
         .getPublicUrl(path);
 
-      await setLogoFn({ data: { logoUrl: urlData.publicUrl! } });
+      await setAppLogo({ data: { logoUrl: urlData.publicUrl! } });
       qc.invalidateQueries({ queryKey: ["app-logo"] });
       toast.success("App logo updated");
     } catch (err) {

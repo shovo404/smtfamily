@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { firebase } from "@/lib/firebase-client";
@@ -166,15 +165,12 @@ function AttendancePage() {
   const [captureMode, setCaptureMode] = useState<"in" | "out" | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<{ id: string; name: string; check_in: string | null; check_out: string | null } | null>(null);
-  const updateAttFn = useServerFn(updateAttendanceTimes);
-  const resetAttFn = useServerFn(resetUserMonthAttendance);
-
   const handleReset = async (userId: string, name: string) => {
     const d = new Date();
     const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (!confirm(`Reset all attendance for ${name} in ${month}? This clears the month so they can check-in again today.`)) return;
     try {
-      await resetAttFn({ data: { userId, month } });
+      await resetUserMonthAttendance({ data: { userId, month } });
       toast.success("Attendance reset");
       qc.invalidateQueries({ queryKey: ["attendance-admin"] });
       qc.invalidateQueries({ queryKey: ["attendance-today"] });
@@ -266,7 +262,7 @@ function AttendancePage() {
   const saveEdit = async (check_in: string | null, check_out: string | null) => {
     if (!editing) return;
     try {
-      await updateAttFn({ data: {
+      await updateAttendanceTimes({ data: {
         attendanceId: editing.id,
         check_in: check_in ? new Date(check_in).toISOString() : null,
         check_out: check_out ? new Date(check_out).toISOString() : null,

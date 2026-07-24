@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { firebase } from "@/lib/firebase-client";
@@ -27,11 +26,6 @@ function EmployeesPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const createFn = useServerFn(createEmployee);
-  const resetFn = useServerFn(resetEmployeePassword);
-  const deleteFn = useServerFn(deleteEmployee);
-  const changeRoleFn = useServerFn(changeEmployeeRole);
-  const updateProfileFn = useServerFn(updateEmployeeProfile);
   const [editing, setEditing] = useState<{ id: string; full_name: string; phone: string; department: string } | null>(null);
 
   const { data: list } = useQuery({
@@ -55,7 +49,7 @@ function EmployeesPage() {
 
   const setRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      await changeRoleFn({ data: { userId, role } });
+      await changeEmployeeRole({ data: { userId, role } });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); toast.success("Role updated"); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -63,7 +57,7 @@ function EmployeesPage() {
 
   const resetPw = useMutation({
     mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
-      await resetFn({ data: { userId, newPassword } });
+      await resetEmployeePassword({ data: { userId, newPassword } });
     },
     onSuccess: () => toast.success("Password reset"),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -71,7 +65,7 @@ function EmployeesPage() {
 
   const remove = useMutation({
     mutationFn: async ({ userId }: { userId: string }) => {
-      await deleteFn({ data: { userId } });
+      await deleteEmployee({ data: { userId } });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); toast.success("Employee deleted"); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -80,7 +74,7 @@ function EmployeesPage() {
   const updateProfile = useMutation({
     mutationFn: async (f: FormData) => {
       if (!editing) return;
-      await updateProfileFn({
+      await updateEmployeeProfile({
         data: {
           userId: editing.id,
           full_name: String(f.get("full_name")),
@@ -100,7 +94,7 @@ function EmployeesPage() {
 
   const create = useMutation({
     mutationFn: async (form: FormData) => {
-      await createFn({
+      await createEmployee({
         data: {
           email: String(form.get("email")).trim(),
           password: String(form.get("password")),

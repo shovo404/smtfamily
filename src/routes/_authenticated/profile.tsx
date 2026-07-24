@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { firebase } from "@/lib/firebase-client";
@@ -20,8 +19,6 @@ function ProfilePage() {
   const [photoUploading, setPhotoUploading] = useState(false);
 
   const isEditable = me?.isAdmin || me?.isHR;
-
-  const updatePhotoFn = useServerFn(updateOwnProfilePhoto);
 
   const save = useMutation({
     mutationFn: async (f: FormData) => {
@@ -52,7 +49,7 @@ function ProfilePage() {
         .from("profile-photos")
         .getPublicUrl(path);
 
-      await updatePhotoFn({ data: { photoUrl: urlData.publicUrl! } });
+      await updateOwnProfilePhoto({ data: { photoUrl: urlData.publicUrl! } });
 
       qc.invalidateQueries({ queryKey: ["current-user"] });
       toast.success("Profile picture updated");
