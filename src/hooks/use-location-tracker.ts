@@ -24,9 +24,9 @@ export function useLocationTracker() {
   const lastKnown = useRef<{ lat: number; lng: number; acc: number | null; at: string } | null>(null);
   const notifiedOff = useRef(false);
 
-  // Every signed-in user shares their current work location. The tracking page
-  // decides who can view it; this must not silently exclude HR/DHR/admin users.
-  const shouldTrack = !!me;
+  // Only track field employees (DHR, SR, FSO) — not admins/HR/staff
+  const isFieldRole = me?.roles.has("dhr") || me?.roles.has("fso") || me?.roles.has("sr");
+  const shouldTrack = !!(me && isFieldRole);
   const userId = me?.user.id;
   const fullName = me?.profile?.full_name ?? me?.user.email ?? "Unknown user";
   const roleLabel = me?.roles.has("dhr")
