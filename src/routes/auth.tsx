@@ -94,7 +94,7 @@ function AuthPage() {
           </form>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            App Developed By SHOVO
+            App Developed By <a href="https://shovo404.github.io/shovoportfolio/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">SHOVO</a>
           </p>
 
         </div>
