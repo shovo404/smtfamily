@@ -38,22 +38,23 @@ function ProfilePage() {
     if (!file || !me) return;
     setPhotoUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `profiles/${me.user.id}.${ext}`;
+      const path = `profiles/${me.user.id}`;
       const { error: uploadErr } = await firebase.storage
         .from("profile-photos")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = await firebase.storage
+      const { data: urlData, error: urlErr } = await firebase.storage
         .from("profile-photos")
         .getPublicUrl(path);
+      if (urlErr || !urlData?.publicUrl) throw urlErr || new Error("Failed to get public URL");
 
-      await updateOwnProfilePhoto({ data: { photoUrl: urlData.publicUrl! } });
+      await updateOwnProfilePhoto({ data: { photoUrl: urlData.publicUrl } });
 
       qc.invalidateQueries({ queryKey: ["current-user"] });
       toast.success("Profile picture updated");
     } catch (err) {
+      console.error("[profile photo upload]", err);
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setPhotoUploading(false);

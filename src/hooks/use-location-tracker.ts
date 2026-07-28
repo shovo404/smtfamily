@@ -24,17 +24,15 @@ export function useLocationTracker() {
   const lastKnown = useRef<{ lat: number; lng: number; acc: number | null; at: string } | null>(null);
   const notifiedOff = useRef(false);
 
-  // Only track field employees (DHR, SR, FSO) — not admins/HR/staff
-  const isFieldRole = me?.roles.has("dhr") || me?.roles.has("fso") || me?.roles.has("sr");
+  // Only track field employees (SO, FI) — not admins/HR/staff
+  const isFieldRole = me?.roles.has("so") || me?.roles.has("fi");
   const shouldTrack = !!(me && isFieldRole);
   const userId = me?.user.id;
   const fullName = me?.profile?.full_name ?? me?.user.email ?? "Unknown user";
-  const roleLabel = me?.roles.has("dhr")
-    ? "DHR"
-    : me?.roles.has("fso")
-    ? "FSO"
-    : me?.roles.has("sr")
-    ? "SR"
+  const roleLabel = me?.roles.has("so")
+    ? "SO"
+    : me?.roles.has("fi")
+    ? "FI"
     : "Field";
 
   useEffect(() => {

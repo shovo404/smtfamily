@@ -33,10 +33,9 @@ function roleBadge(me: ReturnType<typeof useCurrentUser>["data"]) {
   if (me.isSuperAdmin) return "Super Admin";
   if (me.roles.has("admin")) return "Admin";
   if (me.roles.has("hr")) return "HR";
-  if (me.roles.has("dsr")) return "DSR";
   if (me.roles.has("dhr")) return "DHR";
-  if (me.roles.has("fso")) return "FSO";
-  if (me.roles.has("sr")) return "SR";
+  if (me.roles.has("so")) return "SO";
+  if (me.roles.has("fi")) return "FI";
   return null;
 }
 

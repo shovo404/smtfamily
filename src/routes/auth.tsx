@@ -16,7 +16,7 @@ export const Route = createFileRoute("/auth")({
           .select("role")
           .eq("id", userData.user.id)
           .maybeSingle();
-        const role = profile?.role ?? "fso";
+        const role = profile?.role ?? "fi";
         const home = role === "super_admin" || role === "admin" || role === "hr"
           ? "/dashboard" : "/attendance";
         throw redirect({ to: home });
@@ -46,7 +46,7 @@ function AuthPage() {
           .select("role")
           .eq("id", session.user.id)
           .maybeSingle();
-        const role = profile?.role ?? "fso";
+        const role = profile?.role ?? "fi";
         const home = role === "super_admin" || role === "admin" || role === "hr"
           ? "/dashboard" : "/attendance";
         navigate({ to: home });

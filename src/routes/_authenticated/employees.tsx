@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { firebase } from "@/lib/firebase-client";
-import { useCurrentUser, type AppRole } from "@/hooks/use-current-user";
+import { useCurrentUser, type AppRole, CREATABLE_ROLES, SUPER_ADMIN_CREATABLE_ROLES } from "@/hooks/use-current-user";
 import {
   createEmployee,
   resetEmployeePassword,
@@ -19,12 +19,18 @@ export const Route = createFileRoute("/_authenticated/employees")({
   component: EmployeesPage,
 });
 
-const ROLE_OPTIONS: { value: AppRole; label: string }[] = [
-  { value: "admin", label: "Admin" },
-  { value: "hr", label: "HR" },
-  { value: "dsr", label: "DSR" },
-  { value: "sr", label: "SR" },
-];
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  hr: "HR",
+  dhr: "DHR",
+  so: "SO",
+  fi: "FI",
+};
+
+function getRoleOptions(isSuperAdmin: boolean): { value: AppRole; label: string }[] {
+  const roles = isSuperAdmin ? SUPER_ADMIN_CREATABLE_ROLES : CREATABLE_ROLES;
+  return roles.map((r) => ({ value: r, label: ROLE_LABELS[r] || r.toUpperCase() }));
+}
 
 type ConfirmAction = {
   type: "reset" | "reset-bulk" | "reset-all";
@@ -41,9 +47,11 @@ function EmployeesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<ConfirmAction>(null);
 
+  const roleOptions = getRoleOptions(!!me?.isSuperAdmin);
+
   const [formData, setFormData] = useState({
     full_name: "", email: "", phone: "", password: "",
-    role: "sr" as AppRole, department: "", employee_id: "",
+    role: "so" as AppRole, department: "", employee_id: "",
   });
 
   const { data: list } = useQuery({
@@ -113,13 +121,19 @@ function EmployeesPage() {
 
   const create = useMutation({
     mutationFn: async () => {
+      if (!me?.isSuperAdmin && (formData.role === "super_admin")) {
+        throw new Error("Only Super Admin can create Super Admin accounts");
+      }
+      if (!me?.isSuperAdmin && !me?.isAdmin) {
+        throw new Error("Only Admin and Super Admin can create users");
+      }
       await createEmployee({ data: formData });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["employees"] });
       toast.success("Employee created");
       setShowForm(false);
-      setFormData({ full_name: "", email: "", phone: "", password: "", role: "sr", department: "", employee_id: "" });
+      setFormData({ full_name: "", email: "", phone: "", password: "", role: "so", department: "", employee_id: "" });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to create"),
   });
@@ -142,6 +156,7 @@ function EmployeesPage() {
   const canReset = me.perms.resetPasswords;
   const canChangeRole = me.perms.changeRoles;
   const isSuperAdmin = me.isSuperAdmin;
+  const canCreateUsers = me.isAdmin;
 
   const filtered = (list ?? []).filter((e: any) =>
     (e.full_name ?? "").toLowerCase().includes(q.toLowerCase()) ||
@@ -223,7 +238,7 @@ function EmployeesPage() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, email or ID\u2026"
             className="w-full rounded-md bg-input pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
-        {canManage && (
+        {canCreateUsers && (
           <button onClick={() => setShowForm(!showForm)} className="flex shrink-0 items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
             <Plus className="h-4 w-4" />Add
           </button>
@@ -259,7 +274,7 @@ function EmployeesPage() {
         </div>
       )}
 
-      {showForm && canManage && (
+      {showForm && canCreateUsers && (
         <div className="premium-card p-4 grid gap-3">
           <h3 className="font-semibold text-base">Create Employee</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -290,7 +305,7 @@ function EmployeesPage() {
             <select
               value={formData.role} onChange={(e) => handleFormChange("role", e.target.value)}
               required className="rounded-md bg-input px-3 py-2 text-sm">
-              {ROLE_OPTIONS.map((r) => (
+              {roleOptions.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
@@ -311,7 +326,7 @@ function EmployeesPage() {
       <div className="space-y-3">
         {filtered.map((emp: any) => {
           const isSuper = emp.role === "super_admin";
-          const canEditThis = canChangeRole && !isSuper;
+          const canEditThis = canChangeRole && !isSuper && (isSuperAdmin || emp.role !== "super_admin");
           const canDeleteThis = canDelete && emp.id !== me.user.id && !isSuper;
           const isSelected = selected.has(emp.id);
           return (
@@ -342,16 +357,18 @@ function EmployeesPage() {
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {canEditThis ? (
                   <select
-                    value={(emp.role as AppRole) ?? "sr"}
+                    value={(emp.role as AppRole) ?? "so"}
                     onChange={(e) => setRole.mutate({ userId: emp.id, role: e.target.value as AppRole })}
                     className="rounded bg-input px-2 py-1 text-xs"
                   >
-                    {ROLE_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    {(isSuperAdmin ? roleOptions : roleOptions.filter(r => r.value !== "super_admin")).map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
                     {isSuper && <option value="super_admin">SUPER ADMIN</option>}
                   </select>
                 ) : (
                   <span className="rounded bg-accent/60 px-2 py-1 text-xs uppercase">
-                    {emp.role ?? "sr"}
+                    {emp.role ?? "so"}
                   </span>
                 )}
 
@@ -488,5 +505,3 @@ function EmployeesPage() {
     </div>
   );
 }
-
-

@@ -5,7 +5,7 @@ create extension if not exists pgcrypto;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
-    CREATE TYPE public.app_role AS ENUM ('super_admin', 'admin', 'hr', 'dhr', 'sr', 'dsr', 'fso');
+    CREATE TYPE public.app_role AS ENUM ('super_admin', 'admin', 'hr', 'dhr', 'so', 'fi');
   END IF;
 END $$;
 
@@ -13,7 +13,7 @@ create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null default '', full_name text not null default '',
   employee_id text, phone text, department text, photo_url text,
-  role public.app_role not null default 'fso', is_active boolean not null default true,
+  role public.app_role not null default 'fi', is_active boolean not null default true,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 
@@ -167,7 +167,7 @@ create policy "permissions authenticated view" on public.role_permissions for se
 drop policy if exists "permissions admin manage" on public.role_permissions;
 create policy "permissions admin manage" on public.role_permissions for all using (public.is_admin()) with check (public.is_admin());
 
-insert into storage.buckets (id, name, public) values ('attendance-faces', 'attendance-faces', false), ('avatars', 'avatars', false), ('app-assets', 'app-assets', false)
+insert into storage.buckets (id, name, public) values ('attendance-faces', 'attendance-faces', false), ('profile-photos', 'profile-photos', true), ('app-assets', 'app-assets', true)
 on conflict (id) do nothing;
 
 drop policy if exists "own attendance upload" on storage.objects;
@@ -175,9 +175,9 @@ create policy "own attendance upload" on storage.objects for insert to authentic
 drop policy if exists "own attendance read" on storage.objects;
 create policy "own attendance read" on storage.objects for select to authenticated using (bucket_id = 'attendance-faces' and ((storage.foldername(name))[1] = auth.uid()::text or public.can_manage_staff()));
 drop policy if exists "own avatar upload" on storage.objects;
-create policy "own avatar upload" on storage.objects for insert to authenticated with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 drop policy if exists "avatar read" on storage.objects;
-create policy "avatar read" on storage.objects for select to authenticated using (bucket_id = 'avatars');
+create policy "profile photos upload" on storage.objects for insert to authenticated with check (bucket_id = 'profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "profile photos read" on storage.objects for select to authenticated using (bucket_id = 'profile-photos');
 drop policy if exists "staff app assets" on storage.objects;
 create policy "staff app assets" on storage.objects for all to authenticated using (bucket_id = 'app-assets' and public.can_manage_staff()) with check (bucket_id = 'app-assets' and public.can_manage_staff());
 drop policy if exists "app assets read" on storage.objects;

@@ -17,8 +17,9 @@
 --    - shovo@smt.family / shovo@1234 (then set role to super_admin in public.users)
 --    - admin@smt.family / Admin@1234 (then set role to admin)
 --    - hr@smt.family / Hr@1234 (then set role to hr)
---    - dsr@smt.family / Dsr@1234 (then set role to dsr)
---    - sr@smt.family / Sr@1234 (then set role to sr)
+--    - dhr@smt.family / Dhr@1234 (then set role to dhr)
+--    - so@smt.family / So@1234 (then set role to so)
+--    - fi@smt.family / Fi@1234 (then set role to fi)
 -- 3. Or use the SQL below if you have the service_role key:
 
 -- ============================================================
@@ -33,8 +34,9 @@
 update public.users set role = 'super_admin', full_name = 'Shovo', employee_id = 'SA-001' where email = 'shovo@smt.family';
 update public.users set role = 'admin', full_name = 'Admin User', employee_id = 'AD-001' where email = 'admin@smt.family';
 update public.users set role = 'hr', full_name = 'HR Manager', employee_id = 'HR-001' where email = 'hr@smt.family';
-update public.users set role = 'dsr', full_name = 'DSR Agent', employee_id = 'DS-001' where email = 'dsr@smt.family';
-update public.users set role = 'sr', full_name = 'SR Agent', employee_id = 'SR-001' where email = 'sr@smt.family';
+update public.users set role = 'dhr', full_name = 'DHR Agent', employee_id = 'DH-001' where email = 'dhr@smt.family';
+update public.users set role = 'so', full_name = 'SO Agent', employee_id = 'SO-001' where email = 'so@smt.family';
+update public.users set role = 'fi', full_name = 'FI Agent', employee_id = 'FI-001' where email = 'fi@smt.family';
 
 -- Seed default role permissions for non-admin roles
 insert into public.role_permissions (role, permission, enabled) values
@@ -45,12 +47,14 @@ insert into public.role_permissions (role, permission, enabled) values
   ('hr', 'manageTA', true),
   ('hr', 'viewReports', true),
   ('hr', 'viewLiveTracking', true),
-  ('dsr', 'viewTasks', true),
-  ('dsr', 'manageTasks', true),
-  ('dsr', 'viewLiveTracking', true),
-  ('sr', 'viewTasks', true),
-  ('sr', 'manageTasks', true),
-  ('sr', 'viewLiveTracking', true)
+  ('dhr', 'viewReports', true),
+  ('dhr', 'viewLiveTracking', true),
+  ('so', 'viewTasks', true),
+  ('so', 'manageTasks', true),
+  ('so', 'viewLiveTracking', true),
+  ('fi', 'viewTasks', true),
+  ('fi', 'manageTasks', true),
+  ('fi', 'viewLiveTracking', true)
 on conflict (role, permission) do nothing;
 
 -- ============================================================

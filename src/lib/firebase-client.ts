@@ -25,10 +25,8 @@ export const firebase = {
           upsert: options?.upsert,
           contentType: options?.contentType,
         }),
-      // Existing pages await this method, so expose it as a Promise.
       getPublicUrl: async (path: string) => {
-        const result = supabase.storage.from(bucket).getPublicUrl(path);
-        return { ...result, error: null as Error | null };
+        return supabase.storage.from(bucket).getPublicUrl(path);
       },
     }),
   },

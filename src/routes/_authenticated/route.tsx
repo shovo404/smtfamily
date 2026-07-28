@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated")({
       .select("role")
       .eq("id", data.user.id)
       .maybeSingle();
-    const role = profile?.role ?? "fso";
+    const role = profile?.role ?? "fi";
     return { user: data.user, role };
   },
   component: () => (

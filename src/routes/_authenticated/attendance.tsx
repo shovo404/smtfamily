@@ -120,7 +120,7 @@ function FaceCaptureModal({
           {err ? (
             <div className="grid h-full place-items-center p-4 text-center text-sm text-destructive">{err}</div>
           ) : (
-            <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
+            <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
           )}
         </div>
         <div className="mt-4 flex justify-end gap-2">

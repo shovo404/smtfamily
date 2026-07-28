@@ -96,18 +96,20 @@ function SettingsPage() {
       const ext = file.name.split(".").pop() || "png";
       const path = `app-logo/logo.${ext}`;
       const { error: uploadErr } = await firebase.storage
-        .from("profile-photos")
+        .from("app-assets")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = await firebase.storage
-        .from("profile-photos")
+      const { data: urlData, error: urlErr } = await firebase.storage
+        .from("app-assets")
         .getPublicUrl(path);
+      if (urlErr || !urlData?.publicUrl) throw urlErr || new Error("Failed to get public URL");
 
-      await setLogoFn({ logoUrl: urlData.publicUrl! });
+      await setLogoFn({ logoUrl: urlData.publicUrl });
       qc.invalidateQueries({ queryKey: ["app-logo"] });
       toast.success("App logo updated");
     } catch (err) {
+      console.error("[logo upload]", err);
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setLogoUploading(false);

@@ -54,8 +54,9 @@ const DEMO_USERS = [
   { email: "shovo@smt.family", password: "shovo@1234", role: "super_admin", name: "Shovo", id: "SA-001" },
   { email: "admin@smt.family",  password: "Admin@1234",  role: "admin",       name: "Admin User",  id: "AD-001" },
   { email: "hr@smt.family",     password: "Hr@1234",     role: "hr",          name: "HR Manager",  id: "HR-001" },
-  { email: "dsr@smt.family",    password: "Dsr@1234",    role: "dsr",         name: "DSR Agent",   id: "DS-001" },
-  { email: "sr@smt.family",     password: "Sr@1234",     role: "sr",          name: "SR Agent",    id: "SR-001" },
+  { email: "dhr@smt.family",    password: "Dhr@1234",    role: "dhr",         name: "DHR Agent",   id: "DH-001" },
+  { email: "so@smt.family",     password: "So@1234",     role: "so",          name: "SO Agent",    id: "SO-001" },
+  { email: "fi@smt.family",     password: "Fi@1234",     role: "fi",          name: "FI Agent",    id: "FI-001" },
 ];
 
 async function seed() {
@@ -125,12 +126,14 @@ async function seed() {
     { role: "hr",  permission: "manageTA",         enabled: true },
     { role: "hr",  permission: "viewReports",      enabled: true },
     { role: "hr",  permission: "viewLiveTracking", enabled: true },
-    { role: "dsr", permission: "viewTasks",        enabled: true },
-    { role: "dsr", permission: "manageTasks",      enabled: true },
-    { role: "dsr", permission: "viewLiveTracking", enabled: true },
-    { role: "sr",  permission: "viewTasks",        enabled: true },
-    { role: "sr",  permission: "manageTasks",      enabled: true },
-    { role: "sr",  permission: "viewLiveTracking", enabled: true },
+    { role: "dhr", permission: "viewReports",      enabled: true },
+    { role: "dhr", permission: "viewLiveTracking", enabled: true },
+    { role: "so",  permission: "viewTasks",        enabled: true },
+    { role: "so",  permission: "manageTasks",      enabled: true },
+    { role: "so",  permission: "viewLiveTracking", enabled: true },
+    { role: "fi",  permission: "viewTasks",        enabled: true },
+    { role: "fi",  permission: "manageTasks",      enabled: true },
+    { role: "fi",  permission: "viewLiveTracking", enabled: true },
   ];
 
   for (const p of PERMISSION_SEEDS) {

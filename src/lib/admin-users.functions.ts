@@ -2,7 +2,7 @@ import { firebase } from "@/lib/firebase-client";
 import { supabase } from "@/lib/firebase-client";
 import { logAuditEvent } from "@/lib/audit-log";
 
-type AppRole = "super_admin" | "admin" | "hr" | "dhr" | "sr" | "fso" | "dsr";
+type AppRole = "super_admin" | "admin" | "hr" | "dhr" | "so" | "fi";
 
 function fail(error: { message: string } | null) { if (error) throw new Error(error.message); }
 
